@@ -1,0 +1,2343 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DUMO × RVEA 經營帳本</title>
+<style>
+:root{
+  --paper:#FAF8F4;
+  --paper-line: rgba(28,27,31,0.045);
+  --ink:#1C1B1F;
+  --ink-soft:#6B6B70;
+  --ink-faint:#9C9A96;
+  --line:#E4E0D8;
+  --line-strong:#D3CDC0;
+  --navy:#14213D;
+  --navy-soft:#1D2C4F;
+  --navy-line: rgba(255,255,255,0.09);
+  --dumo:#A8506B;
+  --dumo-deep:#7E3850;
+  --dumo-soft:#F5E4E9;
+  --rvea:#1F6F5C;
+  --rvea-deep:#154F41;
+  --rvea-soft:#E1EFEA;
+  --shared:#A3813E;
+  --shared-soft:#F3EAD4;
+  --pos:#2E7D5B;
+  --neg:#B23A32;
+  --card-bg:#FFFFFF;
+  --radius:10px;
+  --radius-sm:6px;
+  --font-display: "Noto Serif TC","Source Serif 4",Georgia,"Times New Roman",serif;
+  --font-body: "PingFang TC","Microsoft JhengHei","Noto Sans TC","Helvetica Neue",Arial,sans-serif;
+  --font-mono: "SF Mono","Cascadia Mono","Consolas","PingFang TC",monospace;
+  --shadow-card: 0 1px 2px rgba(28,27,31,0.04), 0 1px 12px rgba(28,27,31,0.05);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  font-family:var(--font-body);
+  background:var(--paper);
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+  font-size:14px;
+  line-height:1.5;
+}
+button{font-family:inherit;}
+input,select,textarea{font-family:inherit;font-size:13.5px;}
+.num{ font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+::selection{ background: var(--dumo-soft); }
+
+/* ---------- App shell ---------- */
+#app{ display:flex; min-height:100vh; }
+
+.sidebar{
+  width:236px; flex-shrink:0;
+  background: linear-gradient(180deg, var(--navy) 0%, #101a33 100%);
+  color:#fff;
+  padding:24px 16px;
+  display:flex; flex-direction:column;
+  position:sticky; top:0; height:100vh;
+}
+.brand-mark{
+  padding:0 8px 20px 8px;
+  border-bottom:1px solid var(--navy-line);
+  margin-bottom:18px;
+}
+.brand-mark .title{
+  font-family:var(--font-display);
+  font-size:19px; letter-spacing:0.5px; font-weight:600;
+  display:flex; align-items:center; gap:6px;
+}
+.brand-mark .dot-dumo, .brand-mark .dot-rvea{
+  width:8px;height:8px;border-radius:50%;display:inline-block;
+}
+.brand-mark .dot-dumo{ background:var(--dumo); }
+.brand-mark .dot-rvea{ background:var(--rvea); }
+.brand-mark .sub{
+  font-size:11px; color:rgba(255,255,255,0.5); margin-top:5px; letter-spacing:1.5px; text-transform:uppercase;
+}
+.nav{ display:flex; flex-direction:column; gap:2px; }
+.nav-item{
+  display:flex; align-items:center; gap:10px;
+  padding:10px 12px; border-radius:8px; cursor:pointer;
+  color:rgba(255,255,255,0.72); font-size:13.5px;
+  transition: background .15s, color .15s;
+  user-select:none;
+}
+.nav-item svg{ width:16px;height:16px; opacity:0.85; flex-shrink:0; }
+.nav-item:hover{ background:rgba(255,255,255,0.06); color:#fff; }
+.nav-item.active{ background:rgba(255,255,255,0.12); color:#fff; font-weight:600; }
+.nav-section-label{
+  font-size:10.5px; color:rgba(255,255,255,0.38); letter-spacing:1.5px; text-transform:uppercase;
+  margin:16px 12px 6px 12px;
+}
+.sidebar-foot{
+  margin-top:auto; padding-top:14px; border-top:1px solid var(--navy-line);
+  font-size:11px; color:rgba(255,255,255,0.4); padding-left:12px; line-height:1.6;
+}
+
+.main{ flex:1; min-width:0; padding:28px 36px 60px 36px; }
+.page{ display:none; max-width:1180px; margin:0 auto; }
+.page.active{ display:block; }
+
+.page-head{ display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:22px; flex-wrap:wrap; gap:12px; }
+.page-title{ font-family:var(--font-display); font-size:26px; font-weight:600; letter-spacing:0.2px; }
+.page-sub{ color:var(--ink-soft); font-size:13px; margin-top:4px; }
+
+/* ---------- view toggle (帳面/實收) ---------- */
+.view-toggle{
+  display:inline-flex; background:#EFEBE2; border-radius:999px; padding:3px; gap:2px;
+}
+.view-toggle button{
+  border:none; background:transparent; padding:7px 16px; border-radius:999px;
+  font-size:13px; color:var(--ink-soft); cursor:pointer; font-weight:500;
+  transition: all .15s;
+}
+.view-toggle button.active{ background:var(--navy); color:#fff; }
+
+/* ---------- cards ---------- */
+.card-row{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:22px; }
+.stat-card{
+  background:var(--card-bg); border:1px solid var(--line); border-radius:var(--radius);
+  padding:18px 20px; box-shadow:var(--shadow-card); position:relative; overflow:hidden;
+}
+.stat-card::before{
+  content:""; position:absolute; inset:0; opacity:0.55; pointer-events:none;
+  background-image: repeating-linear-gradient(0deg, var(--paper-line) 0px, var(--paper-line) 1px, transparent 1px, transparent 22px);
+}
+.stat-card .label{ font-size:12px; color:var(--ink-soft); letter-spacing:0.3px; position:relative; }
+.stat-card .value{ font-family:var(--font-mono); font-size:26px; font-weight:600; margin-top:6px; position:relative; }
+.stat-card .value.pos{ color:var(--pos); }
+.stat-card .value.neg{ color:var(--neg); }
+.stat-card .foot{ font-size:11.5px; color:var(--ink-faint); margin-top:4px; position:relative; }
+
+.panel{
+  background:var(--card-bg); border:1px solid var(--line); border-radius:var(--radius);
+  box-shadow:var(--shadow-card); margin-bottom:20px; overflow:hidden;
+}
+.panel-head{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 18px; border-bottom:1px solid var(--line);
+}
+.panel-head h3{ margin:0; font-size:14.5px; font-weight:600; font-family:var(--font-display); }
+.panel-body{ padding:16px 18px; }
+
+/* ---------- tables ---------- */
+table.ledger{ width:100%; border-collapse:collapse; font-size:13px; }
+table.ledger th{
+  text-align:right; font-weight:600; color:var(--ink-soft); font-size:11.5px;
+  letter-spacing:0.2px; padding:8px 10px; border-bottom:1.5px solid var(--line-strong);
+  white-space:nowrap;
+}
+table.ledger th:first-child, table.ledger td:first-child{ text-align:left; }
+table.ledger td{ padding:8px 10px; border-bottom:1px solid var(--line); text-align:right; white-space:nowrap; }
+table.ledger tbody tr:hover{ background: rgba(28,27,31,0.02); }
+table.ledger tfoot td{ font-weight:700; border-top:1.5px solid var(--line-strong); border-bottom:none; }
+.brand-chip{
+  display:inline-flex; align-items:center; gap:5px; font-size:11.5px; padding:2px 8px 2px 6px;
+  border-radius:999px; font-weight:600; white-space:nowrap;
+}
+.brand-chip .dot{ width:6px;height:6px;border-radius:50%; }
+.brand-chip.dumo{ background:var(--dumo-soft); color:var(--dumo-deep); }
+.brand-chip.dumo .dot{ background:var(--dumo); }
+.brand-chip.rvea{ background:var(--rvea-soft); color:var(--rvea-deep); }
+.brand-chip.rvea .dot{ background:var(--rvea); }
+.brand-chip.shared{ background:var(--shared-soft); color:#7A5E24; }
+.brand-chip.shared .dot{ background:var(--shared); }
+
+/* ---------- chart ---------- */
+.chart-wrap{ padding:18px 18px 8px 18px; }
+.bars{ display:flex; align-items:flex-end; gap:10px; height:180px; padding-top:10px; }
+.bar-col{ flex:1; display:flex; flex-direction:column; align-items:center; height:100%; justify-content:flex-end; }
+.bar-stack{ width:100%; max-width:34px; display:flex; flex-direction:column-reverse; border-radius:3px 3px 0 0; overflow:hidden; }
+.bar-seg-dumo{ background:var(--dumo); }
+.bar-seg-rvea{ background:var(--rvea); }
+.bar-profit{ font-family:var(--font-mono); font-size:10.5px; margin-top:6px; white-space:nowrap; }
+.bar-month{ font-size:11px; color:var(--ink-soft); margin-top:4px; }
+.chart-legend{ display:flex; gap:16px; padding:0 18px 14px 18px; font-size:11.5px; color:var(--ink-soft); }
+.chart-legend span{ display:inline-flex; align-items:center; gap:5px; }
+.chart-legend .dot{ width:8px;height:8px;border-radius:50%; }
+
+/* ---------- forms ---------- */
+.field-row{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
+.field{ display:flex; flex-direction:column; gap:5px; }
+.field.full{ grid-column:1 / -1; }
+.field label{ font-size:12px; color:var(--ink-soft); font-weight:600; }
+.field input, .field select, .field textarea{
+  border:1px solid var(--line-strong); border-radius:var(--radius-sm); padding:8px 10px; background:#fff; color:var(--ink);
+}
+.field input:focus, .field select:focus, .field textarea:focus{ outline:2px solid var(--navy); outline-offset:0; border-color:var(--navy); }
+.field .hint{ font-size:11px; color:var(--ink-faint); }
+.btn{
+  border:none; border-radius:var(--radius-sm); padding:9px 16px; font-size:13px; font-weight:600; cursor:pointer;
+  transition: filter .15s, transform .05s;
+}
+.btn:active{ transform: translateY(1px); }
+.btn-primary{ background:var(--navy); color:#fff; }
+.btn-primary:hover{ filter:brightness(1.15); }
+.btn-ghost{ background:transparent; color:var(--ink-soft); border:1px solid var(--line-strong); }
+.btn-ghost:hover{ background:#F1EDE4; }
+.btn-danger{ background:transparent; color:var(--neg); border:1px solid rgba(178,58,50,0.35); }
+.btn-danger:hover{ background:rgba(178,58,50,0.06); }
+.btn-sm{ padding:5px 10px; font-size:12px; border-radius:6px; }
+.icon-btn{ background:none; border:none; cursor:pointer; color:var(--ink-faint); padding:4px; border-radius:5px; }
+.icon-btn:hover{ background:#F1EDE4; color:var(--ink); }
+
+.toolbar{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:14px; }
+.toolbar select, .toolbar input{
+  border:1px solid var(--line-strong); border-radius:var(--radius-sm); padding:7px 10px; font-size:12.5px; background:#fff;
+}
+.spacer{ flex:1; }
+
+/* ---------- modal ---------- */
+.modal-backdrop{
+  display:none; position:fixed; inset:0; background:rgba(20,33,61,0.45); z-index:100;
+  align-items:flex-start; justify-content:center; padding:40px 16px; overflow-y:auto;
+}
+.modal-backdrop.open{ display:flex; }
+.modal{
+  background:#fff; border-radius:14px; width:100%; max-width:560px; box-shadow:0 20px 60px rgba(0,0,0,0.25);
+  animation: modalIn .16s ease-out;
+}
+@keyframes modalIn{ from{ opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);} }
+.modal-head{ display:flex; align-items:center; justify-content:space-between; padding:18px 20px; border-bottom:1px solid var(--line); }
+.modal-head h3{ margin:0; font-family:var(--font-display); font-size:17px; }
+.modal-body{ padding:18px 20px; max-height:70vh; overflow-y:auto; }
+.modal-foot{ display:flex; justify-content:flex-end; gap:8px; padding:14px 20px; border-top:1px solid var(--line); }
+
+.type-toggle{ display:flex; gap:8px; margin-bottom:14px; }
+.type-toggle button{
+  flex:1; padding:9px; border-radius:var(--radius-sm); border:1.5px solid var(--line-strong); background:#fff;
+  font-weight:600; cursor:pointer; color:var(--ink-soft);
+}
+.type-toggle button.active.rev{ background:var(--rvea-soft); border-color:var(--rvea); color:var(--rvea-deep); }
+.type-toggle button.active.exp{ background:var(--dumo-soft); border-color:var(--dumo); color:var(--dumo-deep); }
+
+.banner{
+  border-radius:var(--radius-sm); padding:10px 14px; font-size:12.5px; margin-bottom:14px; line-height:1.6;
+}
+.banner.info{ background:#EEF3FB; color:#2C4470; border:1px solid #D3E0F3; }
+.banner.warn{ background:#FBF3E4; color:#7A5E24; border:1px solid #EFDDB0; }
+.banner.error{ background:#FBE9E7; color:#8A2E26; border:1px solid #F0C4BE; }
+
+.empty{ text-align:center; padding:40px 20px; color:var(--ink-faint); font-size:13px; }
+
+.sublinetabs{ display:flex; gap:4px; margin-bottom:18px; border-bottom:1px solid var(--line); }
+.sublinetabs button{
+  border:none; background:none; padding:9px 14px; font-size:13px; color:var(--ink-soft); cursor:pointer;
+  border-bottom:2px solid transparent; font-weight:500; margin-bottom:-1px;
+}
+.sublinetabs button.active{ color:var(--ink); border-bottom-color:var(--navy); font-weight:700; }
+
+/* receipt page */
+.dropzone{
+  border:1.5px dashed var(--line-strong); border-radius:var(--radius); padding:34px; text-align:center; cursor:pointer;
+  color:var(--ink-soft); background:#fff; transition: border-color .15s, background .15s;
+}
+.dropzone:hover{ border-color:var(--navy); background:#F6F5F1; }
+.dropzone.hasimg{ padding:14px; }
+.receipt-preview{ max-width:100%; max-height:320px; border-radius:8px; display:block; margin:0 auto; }
+
+.spinner{
+  width:15px;height:15px;border:2px solid rgba(255,255,255,0.4); border-top-color:#fff; border-radius:50%;
+  display:inline-block; animation: spin .7s linear infinite; vertical-align:-2px; margin-right:6px;
+}
+@keyframes spin{ to{ transform:rotate(360deg); } }
+
+.mobile-topbar{ display:none; }
+
+@media (max-width: 860px){
+  html{ font-size:15px; }
+  body{ font-size:13px; }
+
+  .mobile-topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    background:var(--navy); color:#fff; padding:11px 12px;
+    position:sticky; top:0; z-index:60;
+  }
+  .mobile-topbar .title{
+    font-family:var(--font-display); font-size:14.5px; font-weight:600;
+    display:flex; align-items:center; gap:5px;
+  }
+  .mobile-topbar .dot-dumo, .mobile-topbar .dot-rvea{ width:6px;height:6px;border-radius:50%;display:inline-block; }
+  .mobile-topbar .dot-dumo{ background:var(--dumo); }
+  .mobile-topbar .dot-rvea{ background:var(--rvea); }
+  .hamburger{ background:none;border:none;color:#fff;padding:6px;cursor:pointer;flex-shrink:0; }
+  .hamburger svg{ width:21px;height:21px; }
+
+  #app{ display:block; }
+  .sidebar{
+    display:flex !important;
+    position:fixed; top:0; left:0; height:100dvh; width:76vw; max-width:280px;
+    transform: translateX(-105%); transition: transform .2s ease-out;
+    z-index:110; box-shadow: 6px 0 28px rgba(0,0,0,0.28);
+  }
+  .sidebar.open{ transform: translateX(0); }
+  .sidebar-backdrop{
+    display:none; position:fixed; inset:0; background:rgba(15,20,35,0.45); z-index:100;
+  }
+  .sidebar-backdrop.open{ display:block; }
+
+  .main{ padding:14px 12px 70px 12px; }
+
+  .page-title{ font-size:19px; }
+  .page-sub{ font-size:11.5px; }
+  .page-head{ margin-bottom:16px; gap:10px; }
+
+  .card-row{ grid-template-columns:1fr 1fr; gap:8px; margin-bottom:16px; }
+  .stat-card{ padding:12px 13px; }
+  .stat-card .label{ font-size:10.5px; }
+  .stat-card .value{ font-size:18px; margin-top:4px; }
+  .stat-card .foot{ font-size:10px; }
+
+  .panel{ margin-bottom:14px; border-radius:8px; }
+  .panel-head{ padding:11px 13px; flex-wrap:wrap; gap:8px; }
+  .panel-head h3{ font-size:13px; }
+  .panel-body{ padding:12px 13px; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+
+  table.ledger{ font-size:11.5px; min-width:560px; }
+  table.ledger th{ padding:6px 7px; font-size:10.5px; }
+  table.ledger td{ padding:6px 7px; }
+  .brand-chip{ font-size:10.5px; padding:2px 7px 2px 5px; }
+
+  .view-toggle button{ padding:6px 12px; font-size:11.5px; }
+
+  .chart-wrap{ overflow-x:auto; -webkit-overflow-scrolling:touch; padding:14px 13px 6px 13px; }
+  .bars{ min-width:480px; height:150px; }
+  .chart-legend{ padding:0 13px 12px 13px; font-size:10.5px; }
+
+  .field-row{ grid-template-columns:1fr; gap:10px; }
+  .field label{ font-size:11.5px; }
+  .field input, .field select, .field textarea{ padding:9px 10px; font-size:14px; } /* 14px avoids iOS zoom-on-focus */
+
+  .toolbar{ gap:6px; }
+  .toolbar select, .toolbar input{ font-size:12.5px; padding:8px 9px; flex:1 1 auto; min-width:110px; }
+
+  .sublinetabs{ overflow-x:auto; -webkit-overflow-scrolling:touch; flex-wrap:nowrap; }
+  .sublinetabs button{ padding:9px 12px; font-size:12.5px; white-space:nowrap; }
+
+  .btn{ padding:10px 15px; font-size:13px; }
+  .btn-sm{ padding:7px 11px; font-size:12px; }
+  .icon-btn{ padding:8px; }
+
+  .modal-backdrop{ padding:0; align-items:flex-end; }
+  .modal{ max-width:100%; width:100%; border-radius:16px 16px 0 0; max-height:90dvh; }
+  .modal-body{ max-height:calc(90dvh - 128px); padding:16px; }
+  .modal-head{ padding:16px 16px 14px 16px; }
+  .modal-foot{ padding:12px 16px 16px 16px; }
+
+  .dropzone{ padding:24px 16px; }
+  .empty{ padding:26px 14px; font-size:12px; }
+  .banner{ font-size:12px; padding:9px 12px; }
+}
+</style>
+</head>
+<body>
+
+<div id="storageWarning" style="display:none; align-items:center; gap:10px; background:#7A2E26; color:#fff; padding:10px 16px; font-size:12.5px; line-height:1.5; position:sticky; top:0; z-index:200;">
+  <span>⚠️ 目前雲端儲存無法使用，剛剛的記錄可能不會保留到下次打開。請確認是從 Claude 對話裡的連結／預覽開啟這個頁面，而不是把檔案下載後單獨開啟。建議先按左側選單的「匯出備份」把資料存下來。</span>
+</div>
+<div class="mobile-topbar" id="mobileTopbar">
+  <button class="hamburger" id="hamburgerBtn" aria-label="選單">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+  </button>
+  <div class="title"><span class="dot-dumo"></span>DUMO<span style="opacity:.5;">×</span><span class="dot-rvea"></span>RVEA</div>
+  <div style="width:34px;"></div>
+</div>
+<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+<div id="app">
+  <div class="sidebar" id="sidebar">
+    <div class="brand-mark">
+      <div class="title"><span class="dot-dumo"></span>DUMO<span style="opacity:.4;font-weight:400;">×</span><span class="dot-rvea"></span>RVEA</div>
+      <div class="sub">經營帳本 · Ledger</div>
+    </div>
+    <div class="nav" id="nav"></div>
+    <div class="sidebar-foot">
+      <div id="storageModeLine">資料儲存狀態：檢查中…</div>
+      依訂單日期(帳面)與入帳日期(實收)雙軌記帳
+      <div style="display:flex; gap:6px; margin-top:12px;">
+        <button id="btnExportBackup" style="flex:1; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); color:rgba(255,255,255,0.85); border-radius:6px; padding:7px 6px; font-size:11px; cursor:pointer;">匯出備份</button>
+        <button id="btnImportBackup" style="flex:1; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); color:rgba(255,255,255,0.85); border-radius:6px; padding:7px 6px; font-size:11px; cursor:pointer;">匯入備份</button>
+      </div>
+      <input type="file" id="backupFileInput" accept="application/json" style="display:none;">
+    </div>
+  </div>
+
+  <div class="main" id="main"></div>
+</div>
+
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal" id="modalRoot"></div>
+</div>
+
+<script id="seed-data" type="application/json">[{"date": "2026-01-01", "category": "空間成本", "item": "香氛", "qty": null, "rmb": null, "twd": 297, "source": "蝦皮", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "9508d0547f", "createdAt": 0}, {"date": "2026-01-02", "category": "商品成本", "item": "模具", "qty": 1, "rmb": 27.8, "twd": 139, "source": "抖音-Ngel", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "00879bf239", "createdAt": 0}, {"date": "2026-01-03", "category": "物流", "item": "運費", "qty": null, "rmb": null, "twd": 113, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "1d6c2ab9ea", "createdAt": 0}, {"date": "2026-01-03", "category": "商品成本", "item": "磁鐵", "qty": null, "rmb": 11.35, "twd": 56.75, "source": "1688-寧波澄益磁業有限公司", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "bb03f18f48", "createdAt": 0}, {"date": "2026-01-04", "category": "商品成本", "item": "貓眼膠", "qty": 1, "rmb": 14.7, "twd": 73.5, "source": "淘寶-喵叔", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "835d352037", "createdAt": 0}, {"date": "2026-01-04", "category": "商品成本", "item": "破壞袋", "qty": 1000, "rmb": 60.84, "twd": 304.2, "source": "1688-明光市盛藍新材料有限公司", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "f5c63f0e3b", "createdAt": 0}, {"date": "2026-01-05", "category": "空間成本", "item": "地板樣品", "qty": null, "rmb": null, "twd": 87, "source": "蝦皮", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "9f07f91f88", "createdAt": 0}, {"date": "2026-01-05", "category": "固定成本", "item": "房租", "qty": null, "rmb": null, "twd": 25000, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "c4790589f8", "createdAt": 0}, {"date": "2026-01-06", "category": "物流", "item": "運費", "qty": null, "rmb": null, "twd": 300, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "c6cc861d8f", "createdAt": 0}, {"date": "2026-01-08", "category": "商品成本", "item": "鋼板", "qty": null, "rmb": 26, "twd": 130, "source": "淘寶-Externail", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "c817e7c4fa", "createdAt": 0}, {"date": "2026-01-10", "category": "行銷拍攝成本", "item": "衣服", "qty": null, "rmb": null, "twd": 3940, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "c68539a045", "createdAt": 0}, {"date": "2026-01-11", "category": "商品成本", "item": "美甲膠", "qty": null, "rmb": 25, "twd": 125, "source": "淘寶-Dorryla", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "42c701c536", "createdAt": 0}, {"date": "2026-01-11", "category": "商品成本", "item": "貓眼膠", "qty": 4, "rmb": 55.5, "twd": 277.5, "source": "淘寶-花校長", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "efe67b9cec", "createdAt": 0}, {"date": "2026-01-07", "category": "商品成本", "item": "貓眼膠", "qty": 15, "rmb": 93.61, "twd": 468.05, "source": "1688-燕翎", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "21702cd167", "createdAt": 0}, {"date": "2026-01-08", "category": "商品成本", "item": "紅色膠條", "qty": 1500, "rmb": 30.5, "twd": 152.5, "source": "1688", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "5762c5e517", "createdAt": 0}, {"date": "2026-01-08", "category": "商品成本", "item": "打版貓眼膠條", "qty": 5, "rmb": 10.75, "twd": 53.75, "source": "1688", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "096db7cef1", "createdAt": 0}, {"date": "2026-01-08", "category": "商品成本", "item": "卡紙紅色膠條", "qty": null, "rmb": 30.5, "twd": 152.5, "source": "1688-金華市零典塑膠製品有限公司", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "e5e93a0469", "createdAt": 0}, {"date": "2026-01-08", "category": "商品成本", "item": "色板紅色膠條", "qty": 5, "rmb": 10.75, "twd": 53.75, "source": "1688-青島科奧包裝有限公司", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "c56dd1ff44", "createdAt": 0}, {"date": "2026-01-11", "category": "商品成本", "item": "貓眼膠", "qty": 1, "rmb": 24.5, "twd": 122.5, "source": "淘寶-花校長", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "390949d1e4", "createdAt": 0}, {"date": "2026-01-12", "category": "課程成本", "item": "壓克力相框", "qty": 10, "rmb": 57, "twd": 285, "source": "1688-蒼南縣利格標牌有限公司", "note": "", "brand": "RVEA", "productLine": "進階班", "type": "expense", "id": "75dc58347f", "createdAt": 0}, {"date": "2026-01-12", "category": "商品成本", "item": "封層膠", "qty": null, "rmb": 62.68, "twd": 313.4, "source": "小紅書-溫鈺兔", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "1c229a471a", "createdAt": 0}, {"date": "2026-01-13", "category": "物流", "item": "運費", "qty": null, "rmb": null, "twd": 120, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "cb6397fc9f", "createdAt": 0}, {"date": "2026-01-13", "category": "商品成本", "item": "美甲膠", "qty": 4, "rmb": 70, "twd": 350, "source": "小紅書-Reta", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "7a94eb987f", "createdAt": 0}, {"date": "2026-01-13", "category": "商品成本", "item": "美甲膠", "qty": null, "rmb": 140, "twd": 700, "source": "小紅書-Reta", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "72a92c9cb1", "createdAt": 0}, {"date": "2026-01-14", "category": "行銷拍攝成本", "item": "咖啡杯", "qty": null, "rmb": 22.79, "twd": 113.95, "source": "拚多多-珊姐的陶瓷舖子", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "34a3dec842", "createdAt": 0}, {"date": "2026-01-14", "category": "商品成本", "item": "法式膠", "qty": null, "rmb": 16.8, "twd": 84, "source": "小紅書-恬崽", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "44982c8056", "createdAt": 0}, {"date": "2026-01-14", "category": "商品成本", "item": "蹭粉", "qty": null, "rmb": 45.7, "twd": 228.5, "source": "小紅書-蝶卡", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "2a78696ae1", "createdAt": 0}, {"date": "2026-01-14", "category": "商品成本", "item": "模具", "qty": null, "rmb": 40.8, "twd": 204, "source": "小紅書-豬豬FingertipWorker", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "79b4f2ffc0", "createdAt": 0}, {"date": "2026-01-15", "category": "物流", "item": "運費", "qty": null, "rmb": null, "twd": 60, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "bd642e31b1", "createdAt": 0}, {"date": "2026-01-16", "category": "商品成本", "item": "收納盒", "qty": 50, "rmb": 95.5, "twd": 477.5, "source": "汕頭市泰藝包裝有限公司", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "5a81681462", "createdAt": 0}, {"date": "2026-01-16", "category": "商品成本", "item": "透明壓克力板", "qty": 300, "rmb": 17.2, "twd": 86, "source": "1688-義烏市甲與他工藝品有限公司", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "08f147a128", "createdAt": 0}, {"date": "2026-01-17", "category": "商品成本", "item": "麵包袋", "qty": 200, "rmb": 20.48, "twd": 102.4, "source": "1688-義烏勤豐塑料包裝", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "e93803b565", "createdAt": 0}, {"date": "2026-01-18", "category": "商品成本", "item": "模土分裝盒", "qty": 100, "rmb": 40.8, "twd": 204, "source": "1688-金華市雲岫日用品", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "daa3391984", "createdAt": 0}, {"date": "2026-01-21", "category": "商品成本", "item": "HOHO", "qty": null, "rmb": null, "twd": 4970, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "49f1d84ce6", "createdAt": 0}, {"date": "2026-01-23", "category": "物流", "item": "運費", "qty": null, "rmb": null, "twd": 183, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "382ac62874", "createdAt": 0}, {"date": "2026-01-23", "category": "物流", "item": "集運", "qty": null, "rmb": 142, "twd": 710, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "8e4727b20a", "createdAt": 0}, {"date": "2026-01-25", "category": "物流", "item": "運費", "qty": null, "rmb": null, "twd": 180, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "3ccc2db9b0", "createdAt": 0}, {"date": "2026-01-26", "category": "物流", "item": "運費", "qty": null, "rmb": null, "twd": 173, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "72f148dec5", "createdAt": 0}, {"date": "2026-01-26", "category": "商品成本", "item": "貓眼膠", "qty": null, "rmb": 28.4, "twd": 142, "source": "抖音-喵叔", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "ec2f11993f", "createdAt": 0}, {"date": "2026-01-27", "category": "商品成本", "item": "貓眼膠", "qty": null, "rmb": 24.4, "twd": 122, "source": "淘寶-花校長", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "c7a15709f9", "createdAt": 0}, {"date": "2026-01-28", "category": "商品成本", "item": "活動贈品", "qty": null, "rmb": null, "twd": 4760, "source": "Nail Labo", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "9dc87685ad", "createdAt": 0}, {"date": "2026-01-28", "category": "商品成本", "item": "貓眼膠", "qty": null, "rmb": 24.08, "twd": 120.4, "source": "小紅書-禾一斯", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "9e681a7214", "createdAt": 0}, {"date": "2026-01-29", "category": "固定成本", "item": "官方Line", "qty": null, "rmb": null, "twd": 1260, "source": "LinePay", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "a67c06c50d", "createdAt": 0}, {"date": "2026-01-29", "category": "物流", "item": "退貨運費", "qty": null, "rmb": null, "twd": 130, "source": "北爛水星學生不領貨", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "d07dfea943", "createdAt": 0}, {"date": "2026-01-29", "category": "物流", "item": "運費", "qty": null, "rmb": null, "twd": 53, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "52a0300ae2", "createdAt": 0}, {"date": "2026-01-30", "category": "空間成本", "item": "垃圾桶", "qty": null, "rmb": null, "twd": 549, "source": "蝦皮", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "0f1bba0a88", "createdAt": 0}, {"date": "2026-01-31", "category": "商品成本", "item": "花校長淺香檳金01", "qty": null, "rmb": null, "twd": 240, "source": "蝦皮", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "37e318f609", "createdAt": 0}, {"date": "2026-01-31", "category": "物流", "item": "運費", "qty": null, "rmb": null, "twd": 113, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "8c53f0e7b1", "createdAt": 0}, {"date": "2026-02-01", "category": "商品成本", "item": "貓眼膠", "qty": 2, "rmb": 43.8, "twd": 219, "source": "淘寶-花校長", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "796fb4fc95", "createdAt": 0}, {"date": "2026-02-01", "category": "商品成本", "item": "貓眼膠", "qty": 3, "rmb": 39.24, "twd": 196.2, "source": "小紅書-喵叔", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "0f56bdeb91", "createdAt": 0}, {"date": "2026-02-01", "category": "商品成本", "item": "軟糖膠", "qty": null, "rmb": 19.4, "twd": 97, "source": "小紅書-禾一斯", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "58c2b1cc04", "createdAt": 0}, {"date": "2026-02-01", "category": "商品成本", "item": "色膠", "qty": null, "rmb": 14.8, "twd": 74, "source": "小紅書-Ngel", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "a42c6639f8", "createdAt": 0}, {"date": "2026-02-01", "category": "商品成本", "item": "色膠", "qty": null, "rmb": 118.34, "twd": 591.7, "source": "小紅書-Ngel", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "76ca37f15c", "createdAt": 0}, {"date": "2026-02-01", "category": "商品成本", "item": "碎鑽", "qty": null, "rmb": 140, "twd": 700, "source": "小紅書-RETA", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "e156cbd56f", "createdAt": 0}, {"date": "2026-02-02", "category": "商品成本", "item": "拍拍海綿", "qty": 500, "rmb": 15.5, "twd": 77.5, "source": "1688-青島海睿恩化妝用具", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "0f559bbf19", "createdAt": 0}, {"date": "2026-02-03", "category": "商品成本", "item": "貓眼膠", "qty": null, "rmb": 14.28, "twd": 71.4, "source": "小紅書-喵叔", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "e300330779", "createdAt": 0}, {"date": "2026-02-05", "category": "固定成本", "item": "房租", "qty": null, "rmb": null, "twd": 25000, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "f63c119d20", "createdAt": 0}, {"date": "2026-02-06", "category": "物流", "item": "運費", "qty": null, "rmb": null, "twd": 60, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "3331820e5c", "createdAt": 0}, {"date": "2026-02-06", "category": "物流", "item": "集運", "qty": null, "rmb": 25, "twd": 125, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "53ed38b3ed", "createdAt": 0}, {"date": "2026-02-06", "category": "商品成本", "item": "碎鑽", "qty": null, "rmb": 28, "twd": 140, "source": "小紅書-RETA", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "d61dcc296e", "createdAt": 0}, {"date": "2026-02-06", "category": "商品成本", "item": "冰晶", "qty": null, "rmb": 40, "twd": 200, "source": "小紅書-溫鈺兔", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "6a9f4ab154", "createdAt": 0}, {"date": "2026-02-07", "category": "固定成本", "item": "電費", "qty": null, "rmb": null, "twd": 340, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "c12a9e5d00", "createdAt": 0}, {"date": "2026-02-07", "category": "物流", "item": "集運", "qty": null, "rmb": 37, "twd": 185, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "4a4c9b959d", "createdAt": 0}, {"date": "2026-02-08", "category": "物流", "item": "運費", "qty": null, "rmb": null, "twd": 60, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "31d8d5721f", "createdAt": 0}, {"date": "2026-02-09", "category": "物流", "item": "運費", "qty": null, "rmb": null, "twd": 60, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "15cf23581f", "createdAt": 0}, {"date": "2026-02-09", "category": "商品成本", "item": "冰晶", "qty": null, "rmb": 191.66, "twd": 958.3, "source": "小紅書-溫鈺兔", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "003f73ffca", "createdAt": 0}, {"date": "2026-02-13", "category": "空間成本", "item": "拖鞋、杯子", "qty": null, "rmb": null, "twd": 1079, "source": "mao kou", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "3f63f0d029", "createdAt": 0}, {"date": "2026-02-14", "category": "物流", "item": "退客人急件費", "qty": null, "rmb": null, "twd": 500, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "0464363b94", "createdAt": 0}, {"date": "2026-02-24", "category": "空間成本", "item": "擴香棒", "qty": null, "rmb": null, "twd": 99, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "4d4670e6ba", "createdAt": 0}, {"date": "2026-02-25", "category": "商品成本", "item": "模土收納盒", "qty": 1, "rmb": null, "twd": 373, "source": "蝦皮", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "78c514f7ba", "createdAt": 0}, {"date": "2026-02-28", "category": "物流", "item": "運費", "qty": null, "rmb": null, "twd": 226, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "ff39bb916b", "createdAt": 0}, {"date": "2026-02-28", "category": "商品成本", "item": "珍珠飾品", "qty": null, "rmb": 98, "twd": 490, "source": "1688-義烏市臻圓飾品", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "1374641e58", "createdAt": 0}, {"date": "2026-02-28", "category": "商品成本", "item": "果凍膠", "qty": null, "rmb": 4.2, "twd": 21, "source": "1688-萌可", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "023782d7a3", "createdAt": 0}, {"date": "2026-02-28", "category": "商品成本", "item": "美甲飾品收納盒", "qty": null, "rmb": 6.09, "twd": 30.45, "source": "1688-義烏市林洱飾品廠", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "c959fad67a", "createdAt": 0}, {"date": "2026-02-28", "category": "商品成本", "item": "甲片", "qty": null, "rmb": 38.5, "twd": 192.5, "source": "抖音-梨花姬", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "b43d596d63", "createdAt": 0}, {"date": "2026-03-02", "category": "商品成本", "item": "飛機盒", "qty": 100, "rmb": 43, "twd": 215, "source": "1688-東莞市興悅環保包裝科技有限公司", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "91cee6c3bf", "createdAt": 0}, {"date": "2026-03-04", "category": "物流", "item": "運費", "qty": null, "rmb": null, "twd": 190, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "6796783bee", "createdAt": 0}, {"date": "2026-03-05", "category": "固定成本", "item": "房租", "qty": null, "rmb": null, "twd": 25000, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "b02620cfa6", "createdAt": 0}, {"date": "2026-03-07", "category": "物流", "item": "運費", "qty": null, "rmb": null, "twd": 120, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "38a571760e", "createdAt": 0}, {"date": "2026-03-08", "category": "固定成本", "item": "Notion商業版", "qty": null, "rmb": null, "twd": 764, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "f42ee53fc2", "createdAt": 0}, {"date": "2026-03-09", "category": "固定成本", "item": "電費", "qty": null, "rmb": null, "twd": 258, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "ac7ec53b9e", "createdAt": 0}, {"date": "2026-03-09", "category": "商品成本", "item": "模土收納盒", "qty": 7, "rmb": null, "twd": 1821, "source": "蝦皮", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "1d0d5926f3", "createdAt": 0}, {"date": "2026-03-09", "category": "商品成本", "item": "一字燈", "qty": null, "rmb": 38, "twd": 190, "source": "淘寶-RETA", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "12e0752195", "createdAt": 0}, {"date": "2026-03-09", "category": "商品成本", "item": "帆布袋", "qty": 6, "rmb": 60.8, "twd": 304, "source": "1688-溫州賢鑫包裝有公司", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "3657f4b542", "createdAt": 0}, {"date": "2026-03-09", "category": "課程成本", "item": "學生大桌子", "qty": null, "rmb": null, "twd": 7900, "source": "Line", "note": "", "brand": "RVEA", "productLine": "進階班", "type": "expense", "id": "a3395b15f0", "createdAt": 0}, {"date": "2026-03-10", "category": "固定成本", "item": "ChatGPT", "qty": null, "rmb": null, "twd": 690, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "82eb563bc4", "createdAt": 0}, {"date": "2026-03-10", "category": "商品成本", "item": "拍拍膠", "qty": null, "rmb": 11.14, "twd": 55.7, "source": "抖音-花校長", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "0622d74609", "createdAt": 0}, {"date": "2026-03-15", "category": "物流", "item": "運費", "qty": null, "rmb": null, "twd": 60, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "5cefeca36c", "createdAt": 0}, {"date": "2026-03-16", "category": "固定成本", "item": "官方line方案", "qty": null, "rmb": null, "twd": 105, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "6cd2d78b89", "createdAt": 0}, {"date": "2026-03-16", "category": "商品成本", "item": "甲片", "qty": null, "rmb": 645.27, "twd": 3226.35, "source": "拼多多-街遇", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "953b811807", "createdAt": 0}, {"date": "2026-03-18", "category": "課程成本", "item": "閨蜜機", "qty": null, "rmb": null, "twd": 13662, "source": "", "note": "", "brand": "RVEA", "productLine": "進階班", "type": "expense", "id": "0d7dcf29b9", "createdAt": 0}, {"date": "2026-03-20", "category": "行銷拍攝成本", "item": "衣服", "qty": null, "rmb": null, "twd": 2156, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "c9ad8b630a", "createdAt": 0}, {"date": "2026-03-24", "category": "商品成本", "item": "飾品收納盒", "qty": null, "rmb": 124, "twd": 620, "source": "淘寶-京木夕園旗艦店", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "33808cd309", "createdAt": 0}, {"date": "2026-03-24", "category": "商品成本", "item": "模土", "qty": 2, "rmb": 180, "twd": 900, "source": "1688-東莞市橋頭聯興工藝品加工廠", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "12189c1244", "createdAt": 0}, {"date": "2026-03-24", "category": "商品成本", "item": "牛奶棉", "qty": null, "rmb": 11.2, "twd": 56, "source": "1688-義烏市奕輝電子商務", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "b0f92cba59", "createdAt": 0}, {"date": "2026-03-24", "category": "商品成本", "item": "緞帶", "qty": 5, "rmb": 240, "twd": 1200, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "72d0a3601c", "createdAt": 0}, {"date": "2026-03-24", "category": "商品成本", "item": "水晶貼", "qty": 500, "rmb": 60, "twd": 300, "source": "微信", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "6c1717b03a", "createdAt": 0}, {"date": "2026-03-25", "category": "行銷拍攝成本", "item": "戒指", "qty": null, "rmb": 274.3, "twd": 1371.5, "source": "1688-廣州秀智首飾", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "a7c4eb3b96", "createdAt": 0}, {"date": "2026-03-26", "category": "商品成本", "item": "甲片", "qty": null, "rmb": 269.5, "twd": 1347.5, "source": "抖音-梨花姬", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "f3cad700d1", "createdAt": 0}, {"date": "2026-03-29", "category": "商品成本", "item": "貓眼", "qty": null, "rmb": 450, "twd": 2250, "source": "羊微信", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "73507a80a3", "createdAt": 0}, {"date": "2026-03-30", "category": "商品成本", "item": "凝膠", "qty": null, "rmb": null, "twd": 618, "source": "賣貨便Spacemix", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "c3dc31239b", "createdAt": 0}, {"date": "2026-03-31", "category": "物流", "item": "運費", "qty": null, "rmb": null, "twd": 280, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "d9f1735262", "createdAt": 0}, {"date": "2026-03-31", "category": "物流", "item": "集運", "qty": null, "rmb": 86, "twd": 430, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "c7d84e0af0", "createdAt": 0}, {"date": "2026-04-02", "category": "行銷拍攝成本", "item": "飾品", "qty": null, "rmb": 39, "twd": 179.4, "source": "小紅書-Suzyacc", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "b825e49f91", "createdAt": 0}, {"date": "2026-04-03", "category": "商品成本", "item": "膠", "qty": null, "rmb": null, "twd": 618, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "6b9089649a", "createdAt": 0}, {"date": "2026-04-05", "category": "固定成本", "item": "房租", "qty": null, "rmb": null, "twd": 25000, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "a7ea2ad863", "createdAt": 0}, {"date": "2026-04-07", "category": "商品成本", "item": "珍珠膏01", "qty": null, "rmb": 14.67, "twd": 67.482, "source": "淘寶-花校長", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "6ec87e93fd", "createdAt": 0}, {"date": "2026-04-07", "category": "固定成本", "item": "電費", "qty": null, "rmb": null, "twd": 240, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "2daf28e2ad", "createdAt": 0}, {"date": "2026-04-09", "category": "空間成本", "item": "香氛機", "qty": null, "rmb": null, "twd": 2180, "source": "羊媽", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "c1eb26dba1", "createdAt": 0}, {"date": "2026-04-11", "category": "物流", "item": "集運", "qty": null, "rmb": 49, "twd": 245, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "a5227d0314", "createdAt": 0}, {"date": "2026-04-15", "category": "商品成本", "item": "一字燈", "qty": null, "rmb": 104, "twd": 478.4, "source": "抖音-MR Nail", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "bc166d6a59", "createdAt": 0}, {"date": "2026-04-18", "category": "商品成本", "item": "YH-F13", "qty": null, "rmb": 30.97, "twd": 142.462, "source": "淘寶-YH", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "1f75d3ec37", "createdAt": 0}, {"date": "2026-04-18", "category": "商品成本", "item": "暈染液", "qty": 2, "rmb": 81.93, "twd": 376.878, "source": "淘寶-晃晃", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "63aabd0f7a", "createdAt": 0}, {"date": "2026-04-18", "category": "商品成本", "item": "貓眼膠", "qty": null, "rmb": 24.6, "twd": 113.16, "source": "1688-安徽省明睿合成材料", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "617ea33d7e", "createdAt": 0}, {"date": "2026-04-18", "category": "行銷拍攝成本", "item": "飾品", "qty": null, "rmb": 98.6, "twd": 453.56, "source": "1688-廣州秀智首飾", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "0edfbf5ce6", "createdAt": 0}, {"date": "2026-04-19", "category": "商品成本", "item": "補發甲片", "qty": null, "rmb": 24, "twd": 110.4, "source": "淘寶-梨花姬", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "249850240f", "createdAt": 0}, {"date": "2026-04-19", "category": "商品成本", "item": "甲片", "qty": null, "rmb": 38.5, "twd": 177.1, "source": "抖音-梨花姬", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "1427f8b19a", "createdAt": 0}, {"date": "2026-04-19", "category": "空間成本", "item": "香氛", "qty": null, "rmb": null, "twd": 469, "source": "線下-無印", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "449375ab99", "createdAt": 0}, {"date": "2026-04-19", "category": "物流", "item": "集運", "qty": null, "rmb": 155, "twd": 775, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "45edc4b6fd", "createdAt": 0}, {"date": "2026-04-23", "category": "商品成本", "item": "凝膠", "qty": null, "rmb": null, "twd": 798, "source": "賣貨便-代購", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "027db157a2", "createdAt": 0}, {"date": "2026-04-24", "category": "商品成本", "item": "甲片", "qty": null, "rmb": 154, "twd": 708.4, "source": "抖音-梨花姬", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "9dd0203fe2", "createdAt": 0}, {"date": "2026-04-28", "category": "空間成本", "item": "口罩", "qty": null, "rmb": null, "twd": 307, "source": "蝦皮", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "e75a5c3eb9", "createdAt": 0}, {"date": "2026-04-29", "category": "商品成本", "item": "收納盒（收納甲片）", "qty": null, "rmb": null, "twd": 145, "source": "蝦皮", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "b6a73b700c", "createdAt": 0}, {"date": "2026-04-30", "category": "課程成本", "item": "磁鐵", "qty": null, "rmb": 33.9, "twd": 155.94, "source": "1688-寧波澄益磁業", "note": "", "brand": "RVEA", "productLine": "進階班", "type": "expense", "id": "cfd73f5a8c", "createdAt": 0}, {"date": "2026-04-30", "category": "課程成本", "item": "美甲椅子", "qty": 2, "rmb": 180, "twd": 828, "source": "拼多多-歐藝舒家具旗艦店", "note": "", "brand": "RVEA", "productLine": "進階班", "type": "expense", "id": "f36fa474a3", "createdAt": 0}, {"date": "2026-04-30", "category": "商品成本", "item": "暈染液", "qty": 1, "rmb": null, "twd": 350, "source": "naillabo", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "53318299b1", "createdAt": 0}, {"date": "2026-05-03", "category": "物流", "item": "", "qty": null, "rmb": 67, "twd": 335, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "9bb1fed0ec", "createdAt": 0}, {"date": "2026-05-05", "category": "固定成本", "item": "房租", "qty": null, "rmb": null, "twd": 25000, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "3a465e521c", "createdAt": 0}, {"date": "2026-05-05", "category": "物流", "item": "運費", "qty": null, "rmb": null, "twd": 60, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "337b2f9fe0", "createdAt": 0}, {"date": "2026-05-06", "category": "課程成本", "item": "講義*7", "qty": null, "rmb": null, "twd": 945, "source": "", "note": "", "brand": "RVEA", "productLine": "進階班", "type": "expense", "id": "d591e47c1d", "createdAt": 0}, {"date": "2026-05-06", "category": "物流", "item": "運費", "qty": null, "rmb": null, "twd": 60, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "5f9b4f1c56", "createdAt": 0}, {"date": "2026-05-07", "category": "商品成本", "item": "暈染液", "qty": 6, "rmb": null, "twd": 2145, "source": "Hoho官網", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "b953f00bbf", "createdAt": 0}, {"date": "2026-05-08", "category": "課程成本", "item": "黑色紙板+夾板", "qty": 2, "rmb": null, "twd": 53, "source": "九大文具店", "note": "", "brand": "RVEA", "productLine": "進階班", "type": "expense", "id": "1f538ab4d0", "createdAt": 0}, {"date": "2026-05-08", "category": "固定成本", "item": "電費", "qty": null, "rmb": null, "twd": 288, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "29bae475fe", "createdAt": 0}, {"date": "2026-05-09", "category": "物流", "item": "關稅", "qty": null, "rmb": null, "twd": 57, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "b53073eabb", "createdAt": 0}, {"date": "2026-05-11", "category": "固定成本", "item": "GPT", "qty": null, "rmb": null, "twd": 690, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "f8e534c9ac", "createdAt": 0}, {"date": "2026-05-14", "category": "物流", "item": "關稅", "qty": null, "rmb": null, "twd": 71, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "d3d9a5805a", "createdAt": 0}, {"date": "2026-05-14", "category": "物流", "item": "運費", "qty": null, "rmb": null, "twd": 60, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "8006125d16", "createdAt": 0}, {"date": "2026-05-15", "category": "課程成本", "item": "化妝品", "qty": null, "rmb": null, "twd": 518, "source": "", "note": "", "brand": "RVEA", "productLine": "進階班", "type": "expense", "id": "df1bbaabdd", "createdAt": 0}, {"date": "2026-05-18", "category": "空間成本", "item": "循環扇", "qty": null, "rmb": null, "twd": 686, "source": "momo", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "9401df65f1", "createdAt": 0}, {"date": "2026-05-20", "category": "課程成本", "item": "衣服", "qty": null, "rmb": null, "twd": 5840, "source": "mumm", "note": "", "brand": "RVEA", "productLine": "進階班", "type": "expense", "id": "cd6ac8b064", "createdAt": 0}, {"date": "2026-05-22", "category": "課程成本", "item": "列印收藏版", "qty": null, "rmb": null, "twd": 18, "source": "", "note": "", "brand": "RVEA", "productLine": "進階班", "type": "expense", "id": "4b36d4da9e", "createdAt": 0}, {"date": "2026-05-25", "category": "商品成本", "item": "美甲筆", "qty": null, "rmb": null, "twd": 338, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "599e567707", "createdAt": 0}, {"date": "2026-05-28", "category": "課程成本", "item": "列印", "qty": null, "rmb": null, "twd": 51, "source": "", "note": "", "brand": "RVEA", "productLine": "進階班", "type": "expense", "id": "7bea2eacd7", "createdAt": 0}, {"date": "2026-05-28", "category": "固定成本", "item": "剪映", "qty": null, "rmb": 108, "twd": 540, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "5eb0891a25", "createdAt": 0}, {"date": "2026-05-28", "category": "學習成本", "item": "穿透行銷短影音課程", "qty": null, "rmb": null, "twd": 35500, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "74094432c3", "createdAt": 0}, {"date": "2026-05-29", "category": "物流", "item": "運費", "qty": null, "rmb": null, "twd": 60, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "aaccd7a269", "createdAt": 0}, {"date": "2026-05-29", "category": "空間成本", "item": "電池", "qty": null, "rmb": null, "twd": 159, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "fe06e64e91", "createdAt": 0}, {"date": "2026-05-31", "category": "物流", "item": "Lalamove", "qty": null, "rmb": null, "twd": 243, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "0bbc9079cf", "createdAt": 0}, {"date": "2026-06-05", "category": "固定成本", "item": "Google雲端(一年)", "qty": null, "rmb": null, "twd": 550, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "887b833ee0", "createdAt": 0}, {"date": "2026-06-05", "category": "物流", "item": "運費", "qty": null, "rmb": null, "twd": 120, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "aa1706add7", "createdAt": 0}, {"date": "2026-06-06", "category": "課程成本", "item": "C7.C9", "qty": 20, "rmb": null, "twd": 3722, "source": "蝦皮", "note": "", "brand": "RVEA", "productLine": "進階班", "type": "expense", "id": "523f1eed4d", "createdAt": 0}, {"date": "2026-06-07", "category": "空間成本", "item": "精油", "qty": null, "rmb": null, "twd": 1520, "source": "羊媽日本代購", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "9da13602e1", "createdAt": 0}, {"date": "2026-06-11", "category": "物流", "item": "運費", "qty": null, "rmb": null, "twd": 60, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "50f041a7fe", "createdAt": 0}, {"date": "2026-06-16", "category": "固定成本", "item": "GPT", "qty": null, "rmb": null, "twd": 690, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "2e4ef27b61", "createdAt": 0}, {"date": "2026-06-19", "category": "其他", "item": "Dior香水", "qty": null, "rmb": 740, "twd": 3700, "source": "機場", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "1e923c6714", "createdAt": 0}, {"date": "2026-06-19", "category": "課程成本", "item": "濕紙巾", "qty": 20, "rmb": null, "twd": 740, "source": "蝦皮", "note": "", "brand": "RVEA", "productLine": "進階班", "type": "expense", "id": "62ce85b177", "createdAt": 0}, {"date": "2026-06-20", "category": "空間成本", "item": "監視器底座", "qty": null, "rmb": null, "twd": 70, "source": "蝦皮", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "2f3f38312c", "createdAt": 0}, {"date": "2026-06-21", "category": "物流", "item": "運費", "qty": null, "rmb": null, "twd": 60, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "5830a66f3e", "createdAt": 0}, {"date": "2026-06-22", "category": "行銷拍攝成本", "item": "手模", "qty": null, "rmb": null, "twd": 233, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "de35b227d6", "createdAt": 0}, {"date": "2026-06-23", "category": "物流", "item": "運費", "qty": null, "rmb": null, "twd": 120, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "8ac5d60a78", "createdAt": 0}, {"date": "2026-06-26", "category": "固定成本", "item": "ReplyRush(一個月)", "qty": null, "rmb": null, "twd": 318, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "598b346b3e", "createdAt": 0}, {"date": "2026-06-27", "category": "空間成本", "item": "延長線", "qty": null, "rmb": null, "twd": 389, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "6504d764e1", "createdAt": 0}, {"date": "2026-06-27", "category": "空間成本", "item": "電池", "qty": null, "rmb": null, "twd": 183, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "cc400f4795", "createdAt": 0}, {"date": "2026-06-29", "category": "固定成本", "item": "Skool", "qty": null, "rmb": null, "twd": 287, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "0effe7d616", "createdAt": 0}, {"date": "2026-06-30", "category": "課程成本", "item": "官方Line", "qty": null, "rmb": null, "twd": 840, "source": "", "note": "", "brand": "RVEA", "productLine": "進階班", "type": "expense", "id": "affcd50c12", "createdAt": 0}, {"date": "2026-07-01", "category": "固定成本", "item": "DUMO官方賴", "qty": null, "rmb": null, "twd": 105, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "823cf68d12", "createdAt": 0}, {"date": "2026-07-02", "category": "學習成本", "item": "Skool奇蹟公園", "qty": null, "rmb": null, "twd": 923, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "0b7468b048", "createdAt": 0}, {"date": "2026-07-03", "category": "物流", "item": "運費", "qty": null, "rmb": null, "twd": 120, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "6d616581e3", "createdAt": 0}, {"date": "2026-07-03", "category": "物流", "item": "關稅", "qty": null, "rmb": null, "twd": 250, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "c442ccf195", "createdAt": 0}, {"date": "2026-07-04", "category": "學習成本", "item": "Skool遊牧一家", "qty": null, "rmb": null, "twd": 524, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "76e7b4dc27", "createdAt": 0}, {"date": "2026-07-04", "category": "學習成本", "item": "酷炫一日短影音(8/6)", "qty": null, "rmb": null, "twd": 19000, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "76544dfbba", "createdAt": 0}, {"date": "2026-07-04", "category": "課程成本", "item": "影印", "qty": null, "rmb": null, "twd": 58, "source": "", "note": "", "brand": "RVEA", "productLine": "進階班", "type": "expense", "id": "39477e2f0e", "createdAt": 0}, {"date": "2026-07-04", "category": "物流", "item": "運費", "qty": null, "rmb": null, "twd": 180, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "47560d5f35", "createdAt": 0}, {"date": "2026-07-06", "category": "課程成本", "item": "Dolly色膠", "qty": 8, "rmb": null, "twd": 2000, "source": "", "note": "", "brand": "RVEA", "productLine": "進階班", "type": "expense", "id": "cda77b6352", "createdAt": 0}, {"date": "2026-07-08", "category": "固定成本", "item": "claude", "qty": null, "rmb": null, "twd": 643, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "aa96a9790f", "createdAt": 0}, {"date": "2026-07-08", "category": "固定成本", "item": "DUMO Manychat", "qty": null, "rmb": null, "twd": 547, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "a57f554226", "createdAt": 0}, {"date": "2026-07-11", "category": "商品成本", "item": "代工", "qty": null, "rmb": 265, "twd": 1325, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "f15c7832fd", "createdAt": 0}, {"date": "2026-07-13", "category": "空間成本", "item": "電費", "qty": null, "rmb": null, "twd": 395, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "8a24f51a3c", "createdAt": 0}, {"date": "2026-07-13", "category": "物流", "item": "運費", "qty": null, "rmb": null, "twd": 60, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "ee30cd5784", "createdAt": 0}, {"date": "2026-07-14", "category": "行銷拍攝成本", "item": "相機", "qty": null, "rmb": null, "twd": 21900, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "fe905d45a4", "createdAt": 0}, {"date": "2026-07-14", "category": "行銷拍攝成本", "item": "腳架", "qty": null, "rmb": null, "twd": 7800, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "78e8e1f385", "createdAt": 0}, {"date": "2026-07-16", "category": "課程成本", "item": "講義列印", "qty": null, "rmb": null, "twd": 1300, "source": "", "note": "", "brand": "RVEA", "productLine": "進階班", "type": "expense", "id": "cdb2df1729", "createdAt": 0}, {"date": "2026-07-16", "category": "行銷拍攝成本", "item": "讀卡機", "qty": null, "rmb": null, "twd": 539, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "48b80b8f1c", "createdAt": 0}, {"date": "2026-07-17", "category": "行銷拍攝成本", "item": "收音傳輸線", "qty": null, "rmb": null, "twd": 200, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "da2ba0379d", "createdAt": 0}, {"date": "2026-07-19", "category": "行銷拍攝成本", "item": "Micro HDMI線", "qty": null, "rmb": null, "twd": 219, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "6300f2b13b", "createdAt": 0}, {"date": "2026-07-20", "category": "固定成本", "item": "GPT", "qty": null, "rmb": null, "twd": 690, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "c70a03f75f", "createdAt": 0}, {"date": "2026-07-21", "category": "固定成本", "item": "Skool", "qty": null, "rmb": null, "twd": 291, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "43318ea156", "createdAt": 0}, {"date": "2026-07-22", "category": "物流", "item": "運費", "qty": null, "rmb": null, "twd": 60, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "8120232908", "createdAt": 0}, {"date": "2026-07-23", "category": "商品成本", "item": "膠", "qty": null, "rmb": null, "twd": 999, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "dbbd504078", "createdAt": 0}, {"date": "2026-07-24", "category": "固定成本", "item": "manychat", "qty": null, "rmb": null, "twd": 559, "source": "", "note": "", "brand": "SHARED", "productLine": null, "type": "expense", "id": "d0d87fa10b", "createdAt": 0}, {"date": "2026-07-27", "category": "物流", "item": "運費", "qty": null, "rmb": null, "twd": 240, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "dd2d05246e", "createdAt": 0}, {"date": "2026-07-28", "category": "商品成本", "item": "膠", "qty": null, "rmb": null, "twd": 1197, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "b25fcb49a8", "createdAt": 0}, {"date": "2026-07-31", "category": "商品成本", "item": "膠", "qty": null, "rmb": null, "twd": 880, "source": "kaka-蝦皮", "note": "", "brand": "DUMO", "productLine": null, "type": "expense", "id": "f7d95a1079", "createdAt": 0}, {"date": "2026-01-31", "category": "官網商品銷售", "item": "官網商品銷售", "qty": null, "rmb": null, "twd": 172701, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "revenue", "id": "c5da4da306", "createdAt": 0}, {"date": "2026-02-28", "category": "官網商品銷售", "item": "官網商品銷售", "qty": null, "rmb": null, "twd": 100294, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "revenue", "id": "7eef3607d9", "createdAt": 0}, {"date": "2026-03-31", "category": "官網商品銷售", "item": "官網商品銷售", "qty": null, "rmb": null, "twd": 76082, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "revenue", "id": "e4853889eb", "createdAt": 0}, {"date": "2026-04-30", "category": "官網商品銷售", "item": "官網商品銷售", "qty": null, "rmb": null, "twd": 66759, "source": "", "note": "", "brand": "DUMO", "productLine": null, "type": "revenue", "id": "69888f4f4d", "createdAt": 0}, {"date": "2026-04-30", "category": "課程/服務銷售", "item": "課程/服務銷售", "qty": null, "rmb": null, "twd": 149950, "source": "", "note": "原始表單僅記錄「課程銷售金額」總額，系統依當月課程相關支出(學生大桌子/閨蜜機/美甲椅子等)推測為進階班收入，請確認並視需要拆分", "brand": "RVEA", "productLine": "進階班", "type": "revenue", "id": "4caf31a85d", "createdAt": 0}]</script>
+<script>
+window.SEED_TXNS = JSON.parse(document.getElementById('seed-data').textContent);
+</script>
+<script>
+/* ============================================================
+   DUMO × RVEA 經營帳本 — Application Logic
+   ============================================================ */
+
+const CATS = {
+  expense: ["商品成本","行銷拍攝成本","空間成本","課程成本","固定成本","學習成本","物流","其他"],
+  revenue: {
+    DUMO: ["官網商品銷售","其他收入"],
+    "28問": ["28問售出"],
+    "進階班": ["進階班學費"],
+    "靈感研究室": ["SKOOL訂閱"]
+  }
+};
+const EXP_BRAND_DEFAULT = {
+  "商品成本":"DUMO","行銷拍攝成本":"SHARED","空間成本":"SHARED","課程成本":"RVEA",
+  "固定成本":"SHARED","學習成本":"SHARED","物流":"DUMO","其他":"SHARED"
+};
+const PRODUCT_LINES = ["28問","進階班","靈感研究室"];
+const MONTHS = ["01","02","03","04","05","06","07","08","09","10","11","12"];
+const MONTH_LABEL = ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"];
+const CHANNELS = ["綠界","Square","銀行轉帳","現金","其他"];
+
+let TXNS = [];
+let CASHLOGS = [];
+let SETTINGS = { fxRate: 5.0, year: "2026" };
+let VIEW_MODE = "accrual"; // 'accrual' (帳面) | 'cash' (實收)
+let CURRENT_PAGE = "dashboard";
+let RVEA_SUBTAB = "總覽";
+let LEDGER_FILTERS = { brand:"ALL", type:"ALL", month:"ALL", category:"ALL", q:"" };
+let CASH_FILTERS = { brand:"ALL", month:"ALL" };
+let editingTxnId = null;
+let editingCashId = null;
+let receiptImageData = null;
+let STORAGE_OK = true;     // becomes false if the active storage mode fails
+let STORAGE_MODE = 'none'; // 'sheet' | 'claude-storage' | 'none'
+
+// ---- Google Sheet backend (matches the 脈動 Pulse app pattern) ----
+// Paste your deployed Apps Script Web App URL here to make this a fully
+// standalone app (works from a home-screen bookmark, independent of Claude).
+// Leave as-is to keep using Claude's built-in cloud storage instead.
+const SHEET_API_URL = "https://script.google.com/macros/s/AKfycbzNuS_gfWXUvBY22feVcRRe7ucA2-3et5N2i9x9_-Yo8cUun7TFfDFtmzEYefdsT95G/exec";
+
+function cloudConfigured(){
+  return typeof SHEET_API_URL === 'string' && SHEET_API_URL.indexOf('https://script.google.com/') === 0;
+}
+
+async function cloudFetch(method, body){
+  const opts = { method };
+  if(body){
+    // text/plain avoids a CORS preflight against the Apps Script endpoint
+    opts.headers = { 'Content-Type': 'text/plain;charset=utf-8' };
+    opts.body = JSON.stringify(body);
+  }
+  let lastErr;
+  for(let i=0;i<3;i++){
+    try{
+      const url = method==='GET' ? (SHEET_API_URL + '?action=all&_t=' + Date.now()) : SHEET_API_URL;
+      const resp = await fetch(url, opts);
+      const data = await resp.json();
+      if(!data || data.ok===false) throw new Error((data && data.error) || '試算表回應異常');
+      return data;
+    }catch(e){
+      lastErr = e;
+      if(i<2) await new Promise(r=>setTimeout(r, 700*(i+1)));
+    }
+  }
+  throw lastErr;
+}
+async function cloudLoadAll(){ return cloudFetch('GET'); }
+async function cloudReplaceAll(){
+  return cloudFetch('POST', { action:'replaceAll', txns: TXNS, cashlogs: CASHLOGS, settings: SETTINGS });
+}
+
+/* ---------------- persistence ---------------- */
+function storageAvailable(){
+  return typeof window.storage === 'object' && window.storage
+    && typeof window.storage.get === 'function' && typeof window.storage.set === 'function';
+}
+
+async function loadData(){
+  if(cloudConfigured()){
+    STORAGE_MODE = 'sheet';
+    try{
+      const data = await cloudLoadAll();
+      TXNS = Array.isArray(data.txns) ? data.txns : [];
+      CASHLOGS = Array.isArray(data.cashlogs) ? data.cashlogs : [];
+      if(data.settings) SETTINGS = Object.assign(SETTINGS, data.settings);
+      if(TXNS.length===0 && CASHLOGS.length===0 && (window.SEED_TXNS||[]).length){
+        // first-time connection to a fresh sheet: seed with historical data once
+        TXNS = window.SEED_TXNS.map(t=>({...t}));
+        await cloudReplaceAll();
+      }
+      STORAGE_OK = true;
+      return;
+    }catch(e){
+      console.error('sheet load failed', e);
+      STORAGE_OK = false;
+      TXNS = (window.SEED_TXNS || []).map(t=>({...t}));
+      CASHLOGS = [];
+      return;
+    }
+  }
+
+  // Fallback: Claude's built-in artifact cloud storage (only works when opened within a Claude conversation)
+  STORAGE_MODE = 'claude-storage';
+  if(!storageAvailable()){
+    STORAGE_MODE = 'none';
+    STORAGE_OK = false;
+    TXNS = (window.SEED_TXNS || []).map(t=>({...t}));
+    CASHLOGS = [];
+    return;
+  }
+  try{
+    const r = await window.storage.get('txns');
+    TXNS = JSON.parse(r.value);
+  }catch(e){
+    TXNS = (window.SEED_TXNS || []).map(t=>({...t}));
+    await saveTxns();
+  }
+  try{
+    const r = await window.storage.get('cashlogs');
+    CASHLOGS = JSON.parse(r.value);
+  }catch(e){
+    CASHLOGS = [];
+    await saveCashlogs();
+  }
+  try{
+    const r = await window.storage.get('settings');
+    SETTINGS = Object.assign(SETTINGS, JSON.parse(r.value));
+  }catch(e){
+    await saveSettings();
+  }
+}
+
+async function saveTxns(){
+  if(STORAGE_MODE==='sheet'){
+    try{ await cloudReplaceAll(); STORAGE_OK = true; }
+    catch(e){ console.error('sheet save failed', e); STORAGE_OK = false; showStorageWarning(); }
+    return;
+  }
+  if(!storageAvailable()){ STORAGE_OK = false; showStorageWarning(); return; }
+  try{ const r = await window.storage.set('txns', JSON.stringify(TXNS)); if(!r) throw new Error('no result'); STORAGE_OK = true; }
+  catch(e){ console.error('save txns failed', e); STORAGE_OK = false; showStorageWarning(); }
+}
+async function saveCashlogs(){
+  if(STORAGE_MODE==='sheet'){
+    try{ await cloudReplaceAll(); STORAGE_OK = true; }
+    catch(e){ console.error('sheet save failed', e); STORAGE_OK = false; showStorageWarning(); }
+    return;
+  }
+  if(!storageAvailable()){ STORAGE_OK = false; showStorageWarning(); return; }
+  try{ const r = await window.storage.set('cashlogs', JSON.stringify(CASHLOGS)); if(!r) throw new Error('no result'); STORAGE_OK = true; }
+  catch(e){ console.error('save cashlogs failed', e); STORAGE_OK = false; showStorageWarning(); }
+}
+async function saveSettings(){
+  if(STORAGE_MODE==='sheet'){
+    try{ await cloudReplaceAll(); STORAGE_OK = true; }
+    catch(e){ console.error('sheet save failed', e); STORAGE_OK = false; }
+    return;
+  }
+  if(!storageAvailable()){ STORAGE_OK = false; return; }
+  try{ const r = await window.storage.set('settings', JSON.stringify(SETTINGS)); if(!r) throw new Error('no result'); STORAGE_OK = true; }
+  catch(e){ console.error('save settings failed', e); STORAGE_OK = false; }
+}
+
+function showStorageWarning(){
+  const el = document.getElementById('storageWarning');
+  if(el){
+    if(STORAGE_MODE==='sheet'){
+      el.querySelector('span').textContent = '⚠️ 目前連不上 Google 試算表，剛剛的記錄可能沒有存進去。請檢查網路連線，或確認 Apps Script 網址還有效；資料暫時只留在這個畫面上，建議先按「匯出備份」保存。';
+    }
+    el.style.display = 'flex';
+  }
+}
+
+/* ---------------- manual backup (export / import) ----------------
+   Safety net independent of cloud auto-save: lets Laina download a
+   JSON snapshot at any time and restore it later on any device. */
+function exportBackup(){
+  const payload = { txns: TXNS, cashlogs: CASHLOGS, settings: SETTINGS, exportedAt: new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = todayStr();
+  a.href = url;
+  a.download = `DUMO-RVEA-記帳備份-${stamp}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 2000);
+}
+
+async function importBackupFile(file){
+  const text = await file.text();
+  let payload;
+  try{ payload = JSON.parse(text); }catch(e){ alert('這個檔案不是有效的備份檔（JSON格式錯誤）'); return; }
+  if(!payload || !Array.isArray(payload.txns)){ alert('這個檔案看起來不是本系統的備份檔'); return; }
+  const n = payload.txns.length + (Array.isArray(payload.cashlogs)?payload.cashlogs.length:0);
+  if(!confirm(`即將匯入備份檔（共 ${n} 筆資料），會覆蓋目前畫面上的所有記錄，確定要繼續嗎？`)) return;
+  TXNS = payload.txns;
+  CASHLOGS = Array.isArray(payload.cashlogs) ? payload.cashlogs : [];
+  if(payload.settings) SETTINGS = Object.assign(SETTINGS, payload.settings);
+  await saveTxns();
+  await saveCashlogs();
+  await saveSettings();
+  alert(STORAGE_OK ? '匯入完成，資料已同步到雲端儲存。' : '匯入完成，但目前雲端儲存無法使用，請記得再次匯出備份保存。');
+  renderApp();
+}
+
+/* ---------------- utils ---------------- */
+function uid(){ return Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4); }
+function fmtTWD(n){
+  n = Math.round(n||0);
+  const neg = n < 0;
+  const s = Math.abs(n).toLocaleString('en-US');
+  return (neg? '-':'') + '$' + s;
+}
+function fmtNum(n){ return (n||0).toLocaleString('en-US'); }
+function monthKey(dateStr){ return dateStr ? dateStr.slice(0,7) : ''; }
+function monthIdx(dateStr){ return dateStr ? parseInt(dateStr.slice(5,7),10)-1 : -1; }
+function currentYear(){ return SETTINGS.year; }
+function escapeHtml(s){
+  return (s==null?'':String(s)).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function todayStr(){
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+/* ---------------- navigation ---------------- */
+const NAV_ITEMS = [
+  {id:'dashboard', label:'總覽', icon: iconGrid()},
+  {id:'dumo', label:'DUMO', icon: iconDrop()},
+  {id:'rvea', label:'RVEA', icon: iconBook()},
+  {id:'ledger', label:'記帳總表', icon: iconList()},
+  {id:'receipt', label:'拍照輸入', icon: iconCamera()},
+  {id:'voice', label:'語音輸入', icon: iconMic()},
+  {id:'cash', label:'出金對帳', icon: iconBank()},
+];
+function iconGrid(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.2"/><rect x="14" y="3" width="7" height="7" rx="1.2"/><rect x="3" y="14" width="7" height="7" rx="1.2"/><rect x="14" y="14" width="7" height="7" rx="1.2"/></svg>'; }
+function iconDrop(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3c4 5 6 8.2 6 11a6 6 0 1 1-12 0c0-2.8 2-6 6-11z"/></svg>'; }
+function iconBook(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15.5H6.5A2.5 2.5 0 0 0 4 21V5.5z"/><path d="M4 18.5A2.5 2.5 0 0 1 6.5 16H20"/></svg>'; }
+function iconList(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>'; }
+function iconCamera(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.3"/></svg>'; }
+function iconBank(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 10l9-6 9 6"/><path d="M5 10v9M10 10v9M14 10v9M19 10v9M3 19h18"/></svg>'; }
+function iconMic(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4"/></svg>'; }
+
+function renderNav(){
+  const nav = document.getElementById('nav');
+  nav.innerHTML = NAV_ITEMS.map(it => `
+    <div class="nav-item ${CURRENT_PAGE===it.id?'active':''}" data-page="${it.id}">
+      ${it.icon}<span>${it.label}</span>
+    </div>`).join('');
+  nav.querySelectorAll('.nav-item').forEach(el=>{
+    el.addEventListener('click', ()=>{ CURRENT_PAGE = el.dataset.page; closeDrawer(); renderApp(); window.scrollTo(0,0); });
+  });
+}
+
+function openDrawer(){
+  const sb = document.getElementById('sidebar');
+  const bd = document.getElementById('sidebarBackdrop');
+  if(sb) sb.classList.add('open');
+  if(bd) bd.classList.add('open');
+}
+function closeDrawer(){
+  const sb = document.getElementById('sidebar');
+  const bd = document.getElementById('sidebarBackdrop');
+  if(sb) sb.classList.remove('open');
+  if(bd) bd.classList.remove('open');
+}
+function bindDrawerControls(){
+  const hb = document.getElementById('hamburgerBtn');
+  const bd = document.getElementById('sidebarBackdrop');
+  if(hb) hb.onclick = openDrawer;
+  if(bd) bd.onclick = closeDrawer;
+}
+function bindBackupControls(){
+  const exportBtn = document.getElementById('btnExportBackup');
+  const importBtn = document.getElementById('btnImportBackup');
+  const fileInput = document.getElementById('backupFileInput');
+  if(exportBtn) exportBtn.onclick = exportBackup;
+  if(importBtn) importBtn.onclick = ()=> fileInput && fileInput.click();
+  if(fileInput) fileInput.onchange = async ()=>{
+    const f = fileInput.files[0];
+    if(f) await importBackupFile(f);
+    fileInput.value = '';
+  };
+}
+
+/* ---------------- app render dispatcher ---------------- */
+function renderApp(){
+  renderNav();
+  const main = document.getElementById('main');
+  if(CURRENT_PAGE==='dashboard') main.innerHTML = renderDashboard();
+  else if(CURRENT_PAGE==='dumo') main.innerHTML = renderBrandPage('DUMO');
+  else if(CURRENT_PAGE==='rvea') main.innerHTML = renderRveaPage();
+  else if(CURRENT_PAGE==='ledger') main.innerHTML = renderLedgerPage();
+  else if(CURRENT_PAGE==='receipt') main.innerHTML = renderReceiptPage();
+  else if(CURRENT_PAGE==='voice') main.innerHTML = renderVoicePage();
+  else if(CURRENT_PAGE==='cash') main.innerHTML = renderCashPage();
+  attachPageHandlers();
+}
+
+/* ============================================================
+   Core calculation engine
+   ============================================================ */
+
+// Sum revenue for brand (+ optional productLine) in a given month, by view mode
+function revenueFor(brand, month, mode, productLine){
+  mode = mode || VIEW_MODE;
+  if(mode === 'accrual'){
+    return TXNS.filter(t=>{
+      if(t.type!=='revenue') return false;
+      if(monthKey(t.date)!==month) return false;
+      if(t.brand!==brand) return false;
+      if(productLine && t.productLine!==productLine) return false;
+      return true;
+    }).reduce((s,t)=>s+t.twd,0);
+  } else {
+    // cash: use cashlogs dated in this month
+    return CASHLOGS.filter(c=>{
+      if(monthKey(c.date)!==month) return false;
+      if(c.brand!==brand) return false;
+      if(productLine && c.productLine!==productLine) return false;
+      return true;
+    }).reduce((s,c)=>s+c.amountTWD,0);
+  }
+}
+
+// Direct (non-shared) expense for a brand in a month. brand: 'DUMO'|'RVEA'. Optional productLine filters RVEA sub.
+function directExpenseFor(brand, month, productLine){
+  return TXNS.filter(t=>{
+    if(t.type!=='expense') return false;
+    if(monthKey(t.date)!==month) return false;
+    if(t.brand!==brand) return false;
+    if(productLine !== undefined){
+      if(productLine===null){ if(t.productLine) return false; }
+      else if(t.productLine!==productLine) return false;
+    }
+    return true;
+  }).reduce((s,t)=>s+t.twd,0);
+}
+
+function sharedExpenseFor(month){
+  return TXNS.filter(t=> t.type==='expense' && t.brand==='SHARED' && monthKey(t.date)===month)
+    .reduce((s,t)=>s+t.twd,0);
+}
+
+// Full month computation for both brands, returns object with allocation applied
+function computeMonth(month, mode){
+  mode = mode || VIEW_MODE;
+  const dumoRevAccrual = revenueFor('DUMO', month, 'accrual');
+  const rveaRevAccrual = revenueFor('RVEA', month, 'accrual');
+  const dumoRev = revenueFor('DUMO', month, mode);
+  const rveaRev = revenueFor('RVEA', month, mode);
+  const totalRevAccrual = dumoRevAccrual + rveaRevAccrual;
+
+  const shared = sharedExpenseFor(month);
+  let dumoShare, rveaShare;
+  if(totalRevAccrual > 0){
+    dumoShare = shared * (dumoRevAccrual/totalRevAccrual);
+    rveaShare = shared * (rveaRevAccrual/totalRevAccrual);
+  } else {
+    dumoShare = shared/2; rveaShare = shared/2;
+  }
+  const dumoDirect = directExpenseFor('DUMO', month);
+  const rveaDirect = directExpenseFor('RVEA', month);
+  const dumoCost = dumoDirect + dumoShare;
+  const rveaCost = rveaDirect + rveaShare;
+
+  return {
+    month,
+    dumoRev, rveaRev, totalRev: dumoRev+rveaRev,
+    dumoDirect, rveaDirect, shared, dumoShare, rveaShare,
+    dumoCost, rveaCost, totalCost: dumoCost+rveaCost,
+    dumoProfit: dumoRev-dumoCost, rveaProfit: rveaRev-rveaCost,
+    totalProfit: (dumoRev+rveaRev)-(dumoCost+rveaCost)
+  };
+}
+
+function yearMonths(){
+  const y = currentYear();
+  return MONTHS.map(m=>y+'-'+m);
+}
+
+function computeYear(mode){
+  return yearMonths().map(m=>computeMonth(m, mode));
+}
+
+// RVEA product-line cost allocation within a month
+function computeRveaLines(month, mode){
+  mode = mode || VIEW_MODE;
+  const rveaRevAccrual = revenueFor('RVEA', month, 'accrual');
+  const m = computeMonth(month, mode); // gives rveaCost total (direct + allocated shared)
+  const rveaCommonDirect = directExpenseFor('RVEA', month, null); // RVEA expense with no productLine tag
+  const linesTaggedDirect = {};
+  let taggedTotal = 0;
+  PRODUCT_LINES.forEach(pl=>{
+    const v = directExpenseFor('RVEA', month, pl);
+    linesTaggedDirect[pl] = v; taggedTotal += v;
+  });
+  const commonPool = m.rveaCost - taggedTotal; // rveaShare(shared) + rveaCommonDirect
+  const revByLine = {};
+  let revSum = 0;
+  PRODUCT_LINES.forEach(pl=>{
+    const v = revenueFor('RVEA', month, mode, pl);
+    revByLine[pl] = v; revSum += v;
+  });
+  const out = {};
+  PRODUCT_LINES.forEach(pl=>{
+    let poolShare;
+    if(rveaRevAccrual > 0){
+      const revAccrualPl = revenueFor('RVEA', month, 'accrual', pl);
+      poolShare = commonPool * (revAccrualPl/rveaRevAccrual);
+    } else {
+      poolShare = commonPool / PRODUCT_LINES.length;
+    }
+    const cost = linesTaggedDirect[pl] + poolShare;
+    const rev = revByLine[pl];
+    out[pl] = { revenue: rev, cost, profit: rev-cost };
+  });
+  return { lines: out, commonPool, rveaCommonDirect };
+}
+
+/* ============================================================
+   Dashboard page
+   ============================================================ */
+function renderDashboard(){
+  const rows = computeYear(VIEW_MODE);
+  const ytdRev = rows.reduce((s,r)=>s+r.totalRev,0);
+  const ytdCost = rows.reduce((s,r)=>s+r.totalCost,0);
+  const ytdProfit = ytdRev-ytdCost;
+  const maxRev = Math.max(1, ...rows.map(r=>r.totalRev));
+
+  const barCols = rows.map((r,i)=>{
+    const dumoH = maxRev? (r.dumoRev/maxRev*150):0;
+    const rveaH = maxRev? (r.rveaRev/maxRev*150):0;
+    return `<div class="bar-col">
+      <div class="bar-stack" style="height:${Math.max(dumoH+rveaH,2)}px">
+        <div class="bar-seg-rvea" style="height:${rveaH}px" title="RVEA ${fmtTWD(r.rveaRev)}"></div>
+        <div class="bar-seg-dumo" style="height:${dumoH}px" title="DUMO ${fmtTWD(r.dumoRev)}"></div>
+      </div>
+      <div class="bar-profit ${r.totalProfit>=0?'pos':'neg'}" style="color:${r.totalProfit>=0?'var(--pos)':'var(--neg)'}">${r.totalProfit? (r.totalProfit>=0?'+':'')+Math.round(r.totalProfit/1000)+'k':''}</div>
+      <div class="bar-month">${MONTH_LABEL[i]}</div>
+    </div>`;
+  }).join('');
+
+  const tableRows = rows.map((r,i)=>{
+    if(r.totalRev===0 && r.totalCost===0) return `<tr style="opacity:.45"><td>${MONTH_LABEL[i]}</td><td class="num">–</td><td class="num">–</td><td class="num">–</td><td class="num">–</td><td class="num">–</td><td class="num">–</td></tr>`;
+    return `<tr>
+      <td>${MONTH_LABEL[i]}</td>
+      <td class="num">${fmtTWD(r.dumoRev)}</td>
+      <td class="num">${fmtTWD(r.rveaRev)}</td>
+      <td class="num" style="font-weight:600">${fmtTWD(r.totalRev)}</td>
+      <td class="num">${fmtTWD(r.dumoCost)}</td>
+      <td class="num">${fmtTWD(r.rveaCost)}</td>
+      <td class="num" style="font-weight:700; color:${r.totalProfit>=0?'var(--pos)':'var(--neg)'}">${fmtTWD(r.totalProfit)}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+  <div class="page active">
+    <div class="page-head">
+      <div>
+        <div class="page-title">經營總覽</div>
+        <div class="page-sub">${currentYear()} 年度 · DUMO 與 RVEA 合併檢視</div>
+      </div>
+      ${viewToggleHtml()}
+    </div>
+
+    ${VIEW_MODE==='cash' ? `<div class="banner info">實收版：營收依「出金對帳」頁面登錄的實際入帳日期計算；支出仍以發生日期認列（成本通常即時支付，不做延遲處理）。</div>`:''}
+
+    <div class="card-row">
+      <div class="stat-card">
+        <div class="label">${VIEW_MODE==='cash'?'年度至今實收營業額':'年度至今帳面總營業額'}</div>
+        <div class="value num">${fmtTWD(ytdRev)}</div>
+        <div class="foot">DUMO ${fmtTWD(rows.reduce((s,r)=>s+r.dumoRev,0))} · RVEA ${fmtTWD(rows.reduce((s,r)=>s+r.rveaRev,0))}</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">年度至今總支出（含共同成本分攤）</div>
+        <div class="value num">${fmtTWD(ytdCost)}</div>
+        <div class="foot">共同成本累計 ${fmtTWD(rows.reduce((s,r)=>s+r.shared,0))}</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">年度至今總利潤</div>
+        <div class="value num ${ytdProfit>=0?'pos':'neg'}">${fmtTWD(ytdProfit)}</div>
+        <div class="foot">利潤率 ${ytdRev? (ytdProfit/ytdRev*100).toFixed(1):'0.0'}%</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>月度營收結構</h3>
+        <div class="chart-legend" style="padding:0;">
+          <span><span class="dot" style="background:var(--dumo)"></span>DUMO</span>
+          <span><span class="dot" style="background:var(--rvea)"></span>RVEA</span>
+        </div>
+      </div>
+      <div class="chart-wrap"><div class="bars">${barCols}</div></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>每月損益表</h3></div>
+      <div class="panel-body" style="padding:0 18px 12px 18px;">
+        <table class="ledger">
+          <thead><tr>
+            <th>月份</th><th>DUMO營收</th><th>RVEA營收</th><th>總營收</th>
+            <th>DUMO支出<br><span style="font-weight:400;font-size:10px">(含分攤)</span></th>
+            <th>RVEA支出<br><span style="font-weight:400;font-size:10px">(含分攤)</span></th>
+            <th>總利潤</th>
+          </tr></thead>
+          <tbody>${tableRows}</tbody>
+          <tfoot><tr>
+            <td>合計</td>
+            <td class="num">${fmtTWD(rows.reduce((s,r)=>s+r.dumoRev,0))}</td>
+            <td class="num">${fmtTWD(rows.reduce((s,r)=>s+r.rveaRev,0))}</td>
+            <td class="num">${fmtTWD(ytdRev)}</td>
+            <td class="num">${fmtTWD(rows.reduce((s,r)=>s+r.dumoCost,0))}</td>
+            <td class="num">${fmtTWD(rows.reduce((s,r)=>s+r.rveaCost,0))}</td>
+            <td class="num" style="color:${ytdProfit>=0?'var(--pos)':'var(--neg)'}">${fmtTWD(ytdProfit)}</td>
+          </tr></tfoot>
+        </table>
+      </div>
+    </div>
+  </div>`;
+}
+
+function viewToggleHtml(){
+  return `<div class="view-toggle" id="viewToggle">
+    <button data-mode="accrual" class="${VIEW_MODE==='accrual'?'active':''}">帳面營業額</button>
+    <button data-mode="cash" class="${VIEW_MODE==='cash'?'active':''}">實際收到的錢</button>
+  </div>`;
+}
+
+/* ============================================================
+   DUMO page (brand = 'DUMO')
+   ============================================================ */
+function renderBrandPage(brand){
+  const accent = brand==='DUMO' ? 'dumo' : 'rvea';
+  const rows = yearMonths().map(m=>computeMonth(m, VIEW_MODE));
+  const ytdRev = rows.reduce((s,r)=>s+r[brand==='DUMO'?'dumoRev':'rveaRev'],0);
+  const ytdCost = rows.reduce((s,r)=>s+r[brand==='DUMO'?'dumoCost':'rveaCost'],0);
+  const ytdShare = rows.reduce((s,r)=>s+r[brand==='DUMO'?'dumoShare':'rveaShare'],0);
+  const ytdDirect = rows.reduce((s,r)=>s+r[brand==='DUMO'?'dumoDirect':'rveaDirect'],0);
+  const ytdProfit = ytdRev-ytdCost;
+
+  // category breakdown (direct costs only, brand-specific)
+  const catTotals = {};
+  CATS.expense.forEach(c=>catTotals[c]=0);
+  TXNS.filter(t=>t.type==='expense' && t.brand===brand && monthKey(t.date).slice(0,4)===currentYear())
+    .forEach(t=>{ catTotals[t.category] = (catTotals[t.category]||0)+t.twd; });
+
+  const tableRows = rows.map((r,i)=>{
+    const rev = brand==='DUMO'?r.dumoRev:r.rveaRev;
+    const direct = brand==='DUMO'?r.dumoDirect:r.rveaDirect;
+    const share = brand==='DUMO'?r.dumoShare:r.rveaShare;
+    const cost = brand==='DUMO'?r.dumoCost:r.rveaCost;
+    const profit = rev-cost;
+    if(rev===0 && cost===0) return `<tr style="opacity:.45"><td>${MONTH_LABEL[i]}</td><td class="num">–</td><td class="num">–</td><td class="num">–</td><td class="num">–</td><td class="num">–</td></tr>`;
+    return `<tr>
+      <td>${MONTH_LABEL[i]}</td>
+      <td class="num">${fmtTWD(rev)}</td>
+      <td class="num">${fmtTWD(direct)}</td>
+      <td class="num">${fmtTWD(share)}</td>
+      <td class="num" style="font-weight:600">${fmtTWD(cost)}</td>
+      <td class="num" style="font-weight:700;color:${profit>=0?'var(--pos)':'var(--neg)'}">${fmtTWD(profit)}</td>
+    </tr>`;
+  }).join('');
+
+  const catRows = CATS.expense.map(c=>{
+    if(!catTotals[c]) return '';
+    return `<tr><td>${c}</td><td class="num">${fmtTWD(catTotals[c])}</td></tr>`;
+  }).join('');
+
+  return `
+  <div class="page active">
+    <div class="page-head">
+      <div>
+        <div class="page-title"><span class="brand-chip ${accent}"><span class="dot"></span>${brand}</span></div>
+        <div class="page-sub">${currentYear()} 年度 · ${brand==='DUMO'?'獨立品牌損益，含共同成本依營收比例分攤':'教育品牌損益總覽'}</div>
+      </div>
+      ${viewToggleHtml()}
+    </div>
+
+    <div class="card-row">
+      <div class="stat-card">
+        <div class="label">年度至今營業額</div>
+        <div class="value num">${fmtTWD(ytdRev)}</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">年度至今總支出</div>
+        <div class="value num">${fmtTWD(ytdCost)}</div>
+        <div class="foot">直接成本 ${fmtTWD(ytdDirect)} + 分攤共同成本 ${fmtTWD(ytdShare)}</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">年度至今利潤</div>
+        <div class="value num ${ytdProfit>=0?'pos':'neg'}">${fmtTWD(ytdProfit)}</div>
+        <div class="foot">利潤率 ${ytdRev? (ytdProfit/ytdRev*100).toFixed(1):'0.0'}%</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>每月損益（${brand}）</h3></div>
+      <div class="panel-body" style="padding:0 18px 12px 18px;">
+        <table class="ledger">
+          <thead><tr><th>月份</th><th>營收</th><th>直接成本</th><th>分攤共同成本</th><th>總支出</th><th>利潤</th></tr></thead>
+          <tbody>${tableRows}</tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>直接成本分類（${currentYear()}年累計）</h3></div>
+      <div class="panel-body" style="padding:0 18px 12px 18px;">
+        <table class="ledger"><thead><tr><th>分類</th><th>金額</th></tr></thead>
+        <tbody>${catRows || '<tr><td colspan="2" class="empty">尚無資料</td></tr>'}</tbody></table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>${brand} 交易明細</h3>
+        <button class="btn btn-primary btn-sm" id="btnAddTxnBrand" data-brand="${brand}">+ 新增記錄</button>
+      </div>
+      <div class="panel-body">${renderTxnMiniTable(TXNS.filter(t=>t.brand===brand))}</div>
+    </div>
+  </div>`;
+}
+
+function renderTxnMiniTable(list){
+  list = list.slice().sort((a,b)=> b.date.localeCompare(a.date)).slice(0,40);
+  if(list.length===0) return `<div class="empty">尚無交易記錄</div>`;
+  const rows = list.map(t=>`
+    <tr>
+      <td style="text-align:left">${t.date}</td>
+      <td style="text-align:left">${t.type==='revenue'?'<span style="color:var(--pos)">收入</span>':'<span style="color:var(--neg)">支出</span>'}</td>
+      <td style="text-align:left">${escapeHtml(t.category)}</td>
+      <td style="text-align:left">${escapeHtml(t.item)}${t.productLine?` <span style="color:var(--ink-faint)">· ${t.productLine}</span>`:''}</td>
+      <td class="num">${fmtTWD(t.twd)}</td>
+      <td style="text-align:center;white-space:nowrap;">
+        <button class="icon-btn edit-txn" data-id="${t.id}" title="編輯">${iconEdit()}</button>
+        <button class="icon-btn del-txn" data-id="${t.id}" title="刪除">${iconTrash()}</button>
+      </td>
+    </tr>`).join('');
+  return `<table class="ledger"><thead><tr><th>日期</th><th>類型</th><th>類別</th><th>項目</th><th>金額</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table>
+  ${list.length>=40?'<div style="text-align:center;color:var(--ink-faint);font-size:12px;padding:8px;">僅顯示最近 40 筆，完整清單請至「記帳總表」</div>':''}`;
+}
+function iconEdit(){ return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>'; }
+function iconTrash(){ return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V6"/></svg>'; }
+
+/* ============================================================
+   RVEA page (with sub-tabs: 總覽 / 28問 / 進階班 / 靈感研究室)
+   ============================================================ */
+function renderRveaPage(){
+  if(RVEA_SUBTAB === '總覽'){
+    return renderRveaOverview();
+  }
+  return renderRveaLinePage(RVEA_SUBTAB);
+}
+
+function renderRveaOverview(){
+  const rows = yearMonths().map(m=>computeMonth(m, VIEW_MODE));
+  const ytdRev = rows.reduce((s,r)=>s+r.rveaRev,0);
+  const ytdCost = rows.reduce((s,r)=>s+r.rveaCost,0);
+  const ytdShare = rows.reduce((s,r)=>s+r.rveaShare,0);
+  const ytdDirect = rows.reduce((s,r)=>s+r.rveaDirect,0);
+  const ytdProfit = ytdRev-ytdCost;
+
+  // revenue by product line for the year
+  const lineRevYtd = {};
+  PRODUCT_LINES.forEach(pl=>{
+    lineRevYtd[pl] = yearMonths().reduce((s,m)=>s+revenueFor('RVEA', m, VIEW_MODE, pl),0);
+  });
+
+  const tableRows = rows.map((r,i)=>{
+    if(r.rveaRev===0 && r.rveaCost===0) return `<tr style="opacity:.45"><td>${MONTH_LABEL[i]}</td><td class="num">–</td><td class="num">–</td><td class="num">–</td><td class="num">–</td><td class="num">–</td></tr>`;
+    const profit = r.rveaRev-r.rveaCost;
+    return `<tr>
+      <td>${MONTH_LABEL[i]}</td>
+      <td class="num">${fmtTWD(r.rveaRev)}</td>
+      <td class="num">${fmtTWD(r.rveaDirect)}</td>
+      <td class="num">${fmtTWD(r.rveaShare)}</td>
+      <td class="num" style="font-weight:600">${fmtTWD(r.rveaCost)}</td>
+      <td class="num" style="font-weight:700;color:${profit>=0?'var(--pos)':'var(--neg)'}">${fmtTWD(profit)}</td>
+    </tr>`;
+  }).join('');
+
+  const lineCards = PRODUCT_LINES.map(pl=>{
+    const rev = lineRevYtd[pl];
+    return `<div class="stat-card">
+      <div class="label">${pl}</div>
+      <div class="value num" style="font-size:20px;">${fmtTWD(rev)}</div>
+      <div class="foot">年度至今營收</div>
+    </div>`;
+  }).join('');
+
+  return `
+  <div class="page active">
+    <div class="page-head">
+      <div>
+        <div class="page-title"><span class="brand-chip rvea"><span class="dot"></span>RVEA</span></div>
+        <div class="page-sub">${currentYear()} 年度 · 教育品牌損益總覽（28問 / 進階班 / 靈感研究室）</div>
+      </div>
+      ${viewToggleHtml()}
+    </div>
+    ${rveaSubtabsHtml()}
+
+    <div class="card-row">
+      <div class="stat-card"><div class="label">年度至今營業額</div><div class="value num">${fmtTWD(ytdRev)}</div></div>
+      <div class="stat-card"><div class="label">年度至今總支出</div><div class="value num">${fmtTWD(ytdCost)}</div><div class="foot">直接成本 ${fmtTWD(ytdDirect)} + 分攤共同成本 ${fmtTWD(ytdShare)}</div></div>
+      <div class="stat-card"><div class="label">年度至今利潤</div><div class="value num ${ytdProfit>=0?'pos':'neg'}">${fmtTWD(ytdProfit)}</div></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>三大產品線營收（點選上方分頁查看各自損益）</h3></div>
+      <div class="panel-body"><div class="card-row" style="margin-bottom:0;">${lineCards}</div></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>每月損益（RVEA 整體）</h3></div>
+      <div class="panel-body" style="padding:0 18px 12px 18px;">
+        <table class="ledger">
+          <thead><tr><th>月份</th><th>營收</th><th>直接成本</th><th>分攤共同成本</th><th>總支出</th><th>利潤</th></tr></thead>
+          <tbody>${tableRows}</tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>RVEA 交易明細</h3>
+        <button class="btn btn-primary btn-sm" id="btnAddTxnBrand" data-brand="RVEA">+ 新增記錄</button>
+      </div>
+      <div class="panel-body">${renderTxnMiniTable(TXNS.filter(t=>t.brand==='RVEA'))}</div>
+    </div>
+  </div>`;
+}
+
+function rveaSubtabsHtml(){
+  const tabs = ['總覽', ...PRODUCT_LINES];
+  return `<div class="sublinetabs" id="rveaSubtabs">${tabs.map(t=>`<button class="${RVEA_SUBTAB===t?'active':''}" data-tab="${t}">${t}</button>`).join('')}</div>`;
+}
+
+function renderRveaLinePage(line){
+  const rows = yearMonths().map(m=>{
+    const r = computeRveaLines(m, VIEW_MODE).lines[line];
+    return { month:m, revenue:r.revenue, cost:r.cost, profit:r.profit };
+  });
+  const ytdRev = rows.reduce((s,r)=>s+r.revenue,0);
+  const ytdCost = rows.reduce((s,r)=>s+r.cost,0);
+  const ytdProfit = ytdRev-ytdCost;
+
+  const tableRows = rows.map((r,i)=>{
+    if(r.revenue===0 && r.cost===0) return `<tr style="opacity:.45"><td>${MONTH_LABEL[i]}</td><td class="num">–</td><td class="num">–</td><td class="num">–</td></tr>`;
+    return `<tr>
+      <td>${MONTH_LABEL[i]}</td>
+      <td class="num">${fmtTWD(r.revenue)}</td>
+      <td class="num">${fmtTWD(r.cost)}</td>
+      <td class="num" style="font-weight:700;color:${r.profit>=0?'var(--pos)':'var(--neg)'}">${fmtTWD(r.profit)}</td>
+    </tr>`;
+  }).join('');
+
+  const lineTxns = TXNS.filter(t=>t.brand==='RVEA' && t.productLine===line);
+
+  return `
+  <div class="page active">
+    <div class="page-head">
+      <div>
+        <div class="page-title"><span class="brand-chip rvea"><span class="dot"></span>RVEA</span> <span style="color:var(--ink-faint);font-weight:400;">/ ${line}</span></div>
+        <div class="page-sub">${lineDesc(line)}</div>
+      </div>
+      ${viewToggleHtml()}
+    </div>
+    ${rveaSubtabsHtml()}
+
+    <div class="banner info">成本 = 直接歸屬於「${line}」的支出 ＋ RVEA共同成本（含分攤到RVEA的DUMO/RVEA共用成本）依各產品線當月營收比例分攤。</div>
+
+    <div class="card-row">
+      <div class="stat-card"><div class="label">年度至今營收</div><div class="value num">${fmtTWD(ytdRev)}</div></div>
+      <div class="stat-card"><div class="label">年度至今總成本</div><div class="value num">${fmtTWD(ytdCost)}</div></div>
+      <div class="stat-card"><div class="label">年度至今利潤</div><div class="value num ${ytdProfit>=0?'pos':'neg'}">${fmtTWD(ytdProfit)}</div></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>每月損益（${line}）</h3></div>
+      <div class="panel-body" style="padding:0 18px 12px 18px;">
+        <table class="ledger"><thead><tr><th>月份</th><th>營收</th><th>成本(含分攤)</th><th>利潤</th></tr></thead>
+        <tbody>${tableRows}</tbody></table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>${line} 交易明細</h3>
+        <button class="btn btn-primary btn-sm" id="btnAddTxnRveaLine" data-line="${line}">+ 新增記錄</button>
+      </div>
+      <div class="panel-body">${renderTxnMiniTable(lineTxns)}</div>
+    </div>
+  </div>`;
+}
+function lineDesc(line){
+  if(line==='28問') return '錄製課程・進階班導流磁鐵・銀行轉帳自助購買';
+  if(line==='進階班') return '穿戴甲進階班・實體小班教學（2-4人）';
+  if(line==='靈感研究室') return 'SKOOL訂閱制社群';
+  return '';
+}
+
+/* ============================================================
+   Ledger page (記帳總表)
+   ============================================================ */
+function renderLedgerPage(){
+  let list = TXNS.slice();
+  if(LEDGER_FILTERS.brand!=='ALL') list = list.filter(t=>t.brand===LEDGER_FILTERS.brand);
+  if(LEDGER_FILTERS.type!=='ALL') list = list.filter(t=>t.type===LEDGER_FILTERS.type);
+  if(LEDGER_FILTERS.month!=='ALL') list = list.filter(t=>monthKey(t.date)===currentYear()+'-'+LEDGER_FILTERS.month);
+  if(LEDGER_FILTERS.category!=='ALL') list = list.filter(t=>t.category===LEDGER_FILTERS.category);
+  if(LEDGER_FILTERS.q){
+    const q = LEDGER_FILTERS.q.toLowerCase();
+    list = list.filter(t=> (t.item||'').toLowerCase().includes(q) || (t.source||'').toLowerCase().includes(q) || (t.note||'').toLowerCase().includes(q));
+  }
+  list.sort((a,b)=> b.date.localeCompare(a.date));
+  const subtotal = list.reduce((s,t)=> s + (t.type==='revenue'? t.twd : -t.twd), 0);
+
+  const rows = list.map(t=>`
+    <tr>
+      <td style="text-align:left">${t.date}</td>
+      <td style="text-align:left">${t.type==='revenue'?'<span style="color:var(--pos);font-weight:600">收入</span>':'<span style="color:var(--neg);font-weight:600">支出</span>'}</td>
+      <td style="text-align:left">${brandChip(t.brand)}${t.productLine?` <span style="font-size:11px;color:var(--ink-faint)">${t.productLine}</span>`:''}</td>
+      <td style="text-align:left">${escapeHtml(t.category)}</td>
+      <td style="text-align:left">${escapeHtml(t.item)}</td>
+      <td class="num">${t.qty ?? '–'}</td>
+      <td class="num">${fmtTWD(t.twd)}</td>
+      <td style="text-align:left;max-width:120px;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(t.source)}</td>
+      <td style="text-align:center;white-space:nowrap;">
+        <button class="icon-btn edit-txn" data-id="${t.id}" title="編輯">${iconEdit()}</button>
+        <button class="icon-btn del-txn" data-id="${t.id}" title="刪除">${iconTrash()}</button>
+      </td>
+    </tr>`).join('');
+
+  return `
+  <div class="page active">
+    <div class="page-head">
+      <div>
+        <div class="page-title">記帳總表</div>
+        <div class="page-sub">所有品牌與產品線的完整交易紀錄 · 共 ${TXNS.length} 筆</div>
+      </div>
+      <button class="btn btn-primary" id="btnAddTxn">+ 新增記錄</button>
+    </div>
+
+    <div class="toolbar">
+      <select id="fBrand">
+        <option value="ALL">全部品牌</option>
+        <option value="DUMO" ${LEDGER_FILTERS.brand==='DUMO'?'selected':''}>DUMO</option>
+        <option value="RVEA" ${LEDGER_FILTERS.brand==='RVEA'?'selected':''}>RVEA</option>
+        <option value="SHARED" ${LEDGER_FILTERS.brand==='SHARED'?'selected':''}>共同成本</option>
+      </select>
+      <select id="fType">
+        <option value="ALL">收入／支出</option>
+        <option value="revenue" ${LEDGER_FILTERS.type==='revenue'?'selected':''}>只看收入</option>
+        <option value="expense" ${LEDGER_FILTERS.type==='expense'?'selected':''}>只看支出</option>
+      </select>
+      <select id="fMonth">
+        <option value="ALL">全部月份</option>
+        ${MONTHS.map((m,i)=>`<option value="${m}" ${LEDGER_FILTERS.month===m?'selected':''}>${MONTH_LABEL[i]}</option>`).join('')}
+      </select>
+      <select id="fCategory">
+        <option value="ALL">全部類別</option>
+        ${CATS.expense.map(c=>`<option value="${c}" ${LEDGER_FILTERS.category===c?'selected':''}>${c}</option>`).join('')}
+      </select>
+      <input type="text" id="fQ" placeholder="搜尋項目／來源／備註" value="${escapeHtml(LEDGER_FILTERS.q)}" style="min-width:180px;">
+      <div class="spacer"></div>
+      <div style="font-size:12.5px;color:var(--ink-soft);">篩選小計：<span class="num" style="font-weight:700;color:${subtotal>=0?'var(--pos)':'var(--neg)'}">${fmtTWD(subtotal)}</span></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-body" style="padding:0;">
+        <div style="overflow-x:auto;">
+        <table class="ledger">
+          <thead><tr><th>日期</th><th>類型</th><th>品牌</th><th>類別</th><th>項目</th><th>數量</th><th>金額(TWD)</th><th>來源</th><th>操作</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="9" class="empty">沒有符合條件的紀錄</td></tr>'}</tbody>
+        </table>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function brandChip(brand){
+  if(brand==='DUMO') return '<span class="brand-chip dumo"><span class="dot"></span>DUMO</span>';
+  if(brand==='RVEA') return '<span class="brand-chip rvea"><span class="dot"></span>RVEA</span>';
+  return '<span class="brand-chip shared"><span class="dot"></span>共同</span>';
+}
+
+/* ============================================================
+   Transaction Add/Edit Modal
+   ============================================================ */
+function openTxnModal(presetOrTxn){
+  const isEdit = presetOrTxn && presetOrTxn.id;
+  editingTxnId = isEdit ? presetOrTxn.id : null;
+  const t = isEdit ? presetOrTxn : Object.assign({
+    type:'expense', date: todayStr(), brand:'DUMO', productLine:null,
+    category:'商品成本', item:'', qty:'', rmb:'', twd:'', source:'', note:''
+  }, presetOrTxn||{});
+
+  document.getElementById('modalRoot').innerHTML = txnModalHtml(t);
+  document.getElementById('modalBackdrop').classList.add('open');
+  bindTxnModalEvents(t);
+}
+function closeModal(){
+  document.getElementById('modalBackdrop').classList.remove('open');
+  document.getElementById('modalRoot').innerHTML = '';
+  editingTxnId = null; editingCashId = null;
+}
+
+function txnModalHtml(t){
+  return `
+  <div class="modal-head">
+    <h3>${editingTxnId? '編輯記錄':'新增記錄'}</h3>
+    <button class="icon-btn" id="mClose">${iconX()}</button>
+  </div>
+  <div class="modal-body">
+    <div class="type-toggle">
+      <button type="button" data-type="revenue" class="${t.type==='revenue'?'active rev':''}" id="tTypeRev">收入</button>
+      <button type="button" data-type="expense" class="${t.type==='expense'?'active exp':''}" id="tTypeExp">支出</button>
+    </div>
+
+    <div class="field-row">
+      <div class="field"><label>日期</label><input type="date" id="tDate" value="${t.date||todayStr()}"></div>
+      <div class="field">
+        <label>品牌</label>
+        <select id="tBrand">
+          <option value="DUMO" ${t.brand==='DUMO'?'selected':''}>DUMO</option>
+          <option value="RVEA" ${t.brand==='RVEA'?'selected':''}>RVEA</option>
+          ${t.type==='expense'?`<option value="SHARED" ${t.brand==='SHARED'?'selected':''}>共同成本（自動分攤）</option>`:''}
+        </select>
+      </div>
+    </div>
+
+    <div class="field-row" id="rowProductLine" style="display:${t.brand==='RVEA'?'grid':'none'};">
+      <div class="field full">
+        <label>RVEA 產品線 ${t.type==='expense'?'（支出可留空＝RVEA共同成本）':'（收入必選）'}</label>
+        <select id="tProductLine">
+          ${t.type==='expense'?`<option value="" ${!t.productLine?'selected':''}>— RVEA共同（不指定產品線）—</option>`:''}
+          ${PRODUCT_LINES.map(pl=>`<option value="${pl}" ${t.productLine===pl?'selected':''}>${pl}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field full">
+        <label>類別</label>
+        <select id="tCategory"></select>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field full"><label>項目名稱</label><input type="text" id="tItem" value="${escapeHtml(t.item)}" placeholder="例如：貓眼膠 / 進階班學費 / 房租"></div>
+    </div>
+
+    <div class="field-row">
+      <div class="field"><label>數量（選填）</label><input type="text" id="tQty" value="${t.qty ?? ''}"></div>
+      <div class="field"><label>幣別</label>
+        <select id="tCurrency">
+          <option value="TWD" ${!t.rmb?'selected':''}>台幣 TWD</option>
+          <option value="RMB" ${t.rmb?'selected':''}>人民幣 RMB（自動換算）</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field-row" id="rowRmb" style="display:${t.rmb?'grid':'none'};">
+      <div class="field"><label>人民幣金額</label><input type="number" step="0.01" id="tRmb" value="${t.rmb ?? ''}"></div>
+      <div class="field"><label>匯率（TWD/RMB）</label><input type="number" step="0.01" id="tFx" value="${SETTINGS.fxRate}"></div>
+    </div>
+
+    <div class="field-row">
+      <div class="field full"><label>台幣金額 ${t.rmb?'（依匯率自動計算，可手動覆蓋）':''}</label><input type="number" step="0.01" id="tTwd" value="${t.twd ?? ''}"></div>
+    </div>
+
+    <div class="field-row">
+      <div class="field"><label>購買來源／銷售通路（選填）</label><input type="text" id="tSource" value="${escapeHtml(t.source)}"></div>
+      <div class="field"><label>備註（選填）</label><input type="text" id="tNote" value="${escapeHtml(t.note)}"></div>
+    </div>
+  </div>
+  <div class="modal-foot">
+    ${editingTxnId?'<button class="btn btn-danger" id="mDelete" style="margin-right:auto;">刪除</button>':''}
+    <button class="btn btn-ghost" id="mCancel">取消</button>
+    <button class="btn btn-primary" id="mSave">儲存</button>
+  </div>`;
+}
+function iconX(){ return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>'; }
+
+function refreshCategoryOptions(state){
+  const sel = document.getElementById('tCategory');
+  if(!sel) return;
+  let opts = [];
+  if(state.type==='expense'){
+    opts = CATS.expense;
+  } else {
+    if(state.brand==='DUMO') opts = CATS.revenue.DUMO;
+    else opts = CATS.revenue[state.productLine] || [];
+  }
+  sel.innerHTML = opts.map(c=>`<option value="${c}" ${state.category===c?'selected':''}>${c}</option>`).join('');
+  if(!opts.includes(state.category)) state.category = opts[0]||'';
+}
+
+function bindTxnModalEvents(initial){
+  const state = Object.assign({}, initial);
+  if(state.brand==='SHARED') state.brand='SHARED';
+  refreshCategoryOptions(state);
+  document.getElementById('tCategory').value = state.category || '';
+
+  function syncBrandRows(){
+    document.getElementById('rowProductLine').style.display = (state.brand==='RVEA') ? 'grid' : 'none';
+    const brandSel = document.getElementById('tBrand');
+    // ensure SHARED option only present for expense
+    if(state.type==='revenue'){
+      const sharedOpt = brandSel.querySelector('option[value="SHARED"]');
+      if(sharedOpt) sharedOpt.remove();
+      if(state.brand==='SHARED'){ state.brand='DUMO'; brandSel.value='DUMO'; }
+    } else {
+      if(!brandSel.querySelector('option[value="SHARED"]')){
+        const o = document.createElement('option'); o.value='SHARED'; o.textContent='共同成本（自動分攤）';
+        brandSel.appendChild(o);
+      }
+    }
+  }
+
+  document.getElementById('mClose').onclick = closeModal;
+  document.getElementById('mCancel').onclick = closeModal;
+
+  document.getElementById('tTypeRev').onclick = ()=>{
+    state.type='revenue';
+    document.getElementById('tTypeRev').className='active rev';
+    document.getElementById('tTypeExp').className='';
+    syncBrandRows();
+    if(state.brand==='RVEA' && !state.productLine) state.productLine = PRODUCT_LINES[0];
+    refreshCategoryOptions(state);
+    document.getElementById('tCategory').value = state.category;
+    rerenderProductLineOptions(state);
+  };
+  document.getElementById('tTypeExp').onclick = ()=>{
+    state.type='expense';
+    document.getElementById('tTypeExp').className='active exp';
+    document.getElementById('tTypeRev').className='';
+    syncBrandRows();
+    refreshCategoryOptions(state);
+    document.getElementById('tCategory').value = state.category;
+    rerenderProductLineOptions(state);
+  };
+
+  document.getElementById('tBrand').onchange = (e)=>{
+    state.brand = e.target.value;
+    if(state.brand!=='RVEA') state.productLine = null;
+    else if(!state.productLine) state.productLine = state.type==='revenue' ? PRODUCT_LINES[0] : null;
+    syncBrandRows();
+    rerenderProductLineOptions(state);
+    refreshCategoryOptions(state);
+    document.getElementById('tCategory').value = state.category;
+  };
+
+  function rerenderProductLineOptions(state){
+    const wrap = document.getElementById('rowProductLine');
+    if(state.brand!=='RVEA'){ wrap.style.display='none'; return; }
+    wrap.style.display='grid';
+    const sel = document.getElementById('tProductLine');
+    sel.innerHTML = (state.type==='expense'? `<option value="">— RVEA共同（不指定產品線）—</option>`:'') +
+      PRODUCT_LINES.map(pl=>`<option value="${pl}" ${state.productLine===pl?'selected':''}>${pl}</option>`).join('');
+  }
+
+  document.getElementById('tProductLine') && (document.getElementById('tProductLine').onchange = (e)=>{
+    state.productLine = e.target.value || null;
+    refreshCategoryOptions(state);
+    document.getElementById('tCategory').value = state.category;
+  });
+
+  document.getElementById('tCategory').onchange = (e)=>{
+    state.category = e.target.value;
+    if(state.type==='expense' && !editingTxnId){
+      const suggested = EXP_BRAND_DEFAULT[state.category];
+      if(suggested && suggested!==state.brand){
+        state.brand = suggested;
+        document.getElementById('tBrand').value = suggested;
+        syncBrandRows(); rerenderProductLineOptions(state);
+      }
+    }
+  };
+
+  document.getElementById('tCurrency').onchange = (e)=>{
+    document.getElementById('rowRmb').style.display = e.target.value==='RMB' ? 'grid':'none';
+    recalcTwd();
+  };
+  function recalcTwd(){
+    const cur = document.getElementById('tCurrency').value;
+    if(cur==='RMB'){
+      const rmb = parseFloat(document.getElementById('tRmb').value)||0;
+      const fx = parseFloat(document.getElementById('tFx').value)||SETTINGS.fxRate;
+      document.getElementById('tTwd').value = (rmb*fx).toFixed(2);
+    }
+  }
+  const rmbEl = document.getElementById('tRmb'); if(rmbEl) rmbEl.oninput = recalcTwd;
+  const fxEl = document.getElementById('tFx'); if(fxEl) fxEl.oninput = recalcTwd;
+
+  document.getElementById('mSave').onclick = async ()=>{
+    const type = state.type;
+    const brand = document.getElementById('tBrand').value;
+    const productLine = (brand==='RVEA') ? (document.getElementById('tProductLine').value || null) : null;
+    const date = document.getElementById('tDate').value || todayStr();
+    const category = document.getElementById('tCategory').value;
+    const item = document.getElementById('tItem').value.trim();
+    const qty = document.getElementById('tQty').value ? parseFloat(document.getElementById('tQty').value) : null;
+    const currency = document.getElementById('tCurrency').value;
+    const rmb = currency==='RMB' ? (parseFloat(document.getElementById('tRmb').value)||0) : null;
+    const twd = parseFloat(document.getElementById('tTwd').value)||0;
+    const source = document.getElementById('tSource').value.trim();
+    const note = document.getElementById('tNote').value.trim();
+
+    if(!item){ alert('請輸入項目名稱'); return; }
+    if(type==='revenue' && brand==='RVEA' && !productLine){ alert('RVEA 收入請選擇所屬產品線（28問／進階班／靈感研究室）'); return; }
+    if(!twd || twd<=0){ alert('請輸入有效的台幣金額'); return; }
+
+    if(currency==='RMB'){
+      const fx = parseFloat(document.getElementById('tFx').value)||SETTINGS.fxRate;
+      SETTINGS.fxRate = fx; await saveSettings();
+    }
+
+    const record = { type, date, brand, productLine, category, item, qty, rmb, twd, source, note };
+
+    if(editingTxnId){
+      const idx = TXNS.findIndex(x=>x.id===editingTxnId);
+      if(idx>=0) TXNS[idx] = Object.assign(TXNS[idx], record);
+    } else {
+      record.id = uid(); record.createdAt = Date.now();
+      TXNS.push(record);
+    }
+    await saveTxns();
+    closeModal();
+    renderApp();
+  };
+
+  const delBtn = document.getElementById('mDelete');
+  if(delBtn){
+    delBtn.onclick = async ()=>{
+      if(!confirm('確定要刪除這筆記錄嗎？')) return;
+      TXNS = TXNS.filter(x=>x.id!==editingTxnId);
+      await saveTxns();
+      closeModal();
+      renderApp();
+    };
+  }
+}
+
+/* ============================================================
+   Receipt / order-history scan page (拍照輸入 — AI vision autofill)
+   Handles: single receipts, invoices, AND multi-item order-list
+   screenshots from any platform (蝦皮/淘寶/1688/小紅書/抖音/拼多多...).
+   ============================================================ */
+let receiptDrafts = null; // array of draft rows
+
+function renderReceiptPage(){
+  return `
+  <div class="page active">
+    <div class="page-head">
+      <div>
+        <div class="page-title">拍照輸入</div>
+        <div class="page-sub">上傳任何平台的訂單截圖／購物紀錄／收據（蝦皮、淘寶、1688、小紅書、抖音…），AI 自動辨識平台、商家、金額、日期，一張圖可以有多筆</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-body">
+        <div class="dropzone ${receiptImageData?'hasimg':''}" id="dropzone">
+          ${receiptImageData
+            ? `<img src="${receiptImageData}" class="receipt-preview">`
+            : `<div>
+                 <div style="font-size:28px;margin-bottom:8px;">📎</div>
+                 <div style="font-weight:600;color:var(--ink);">點擊上傳訂單截圖／購物紀錄／收據</div>
+                 <div style="font-size:12px;margin-top:4px;">支援 JPG、PNG，一張截圖可以包含多筆訂單</div>
+               </div>`}
+        </div>
+        <input type="file" id="fileInput" accept="image/*" style="display:none;">
+        <div style="display:flex; gap:8px; margin-top:14px;">
+          ${receiptImageData? `<button class="btn btn-ghost" id="btnClearImg">重新選擇圖片</button>
+          <button class="btn btn-primary" id="btnRecognize"><span id="recognizeSpin"></span>AI 辨識內容</button>`:''}
+        </div>
+        <div id="recognizeError"></div>
+      </div>
+    </div>
+
+    <div id="receiptReviewPanel"></div>
+  </div>`;
+}
+
+function blankDraftRow(){
+  return { type:'expense', date: todayStr(), brand:'DUMO', productLine:null, category:'商品成本',
+    item:'', qty:null, twd:'', source:'', note:'', include:true };
+}
+
+function renderReceiptReviewTable(){
+  const list = receiptDrafts;
+  if(!list || list.length===0) return '';
+  const sum = list.filter(d=>d.include).reduce((s,d)=>s+(parseFloat(d.twd)||0),0);
+  const rows = list.map((d,i)=>`
+    <tr data-idx="${i}">
+      <td style="text-align:center;"><input type="checkbox" class="rInclude" data-idx="${i}" ${d.include?'checked':''}></td>
+      <td><input type="date" class="rDate" data-idx="${i}" value="${d.date}" style="width:126px;"></td>
+      <td>
+        <select class="rType" data-idx="${i}" style="width:64px;">
+          <option value="expense" ${d.type==='expense'?'selected':''}>支出</option>
+          <option value="revenue" ${d.type==='revenue'?'selected':''}>收入</option>
+        </select>
+      </td>
+      <td>
+        <select class="rBrand" data-idx="${i}" style="width:74px;">
+          <option value="DUMO" ${d.brand==='DUMO'?'selected':''}>DUMO</option>
+          <option value="RVEA" ${d.brand==='RVEA'?'selected':''}>RVEA</option>
+          ${d.type==='expense'?`<option value="SHARED" ${d.brand==='SHARED'?'selected':''}>共同</option>`:''}
+        </select>
+      </td>
+      <td>
+        <select class="rProductLine" data-idx="${i}" style="width:88px;" ${d.brand!=='RVEA'?'disabled':''}>
+          <option value="">${d.type==='expense'?'共同':'—'}</option>
+          ${PRODUCT_LINES.map(pl=>`<option value="${pl}" ${d.productLine===pl?'selected':''}>${pl}</option>`).join('')}
+        </select>
+      </td>
+      <td>
+        <select class="rCategory" data-idx="${i}" style="width:88px;">
+          ${(d.type==='expense'? CATS.expense : (d.brand==='DUMO'? CATS.revenue.DUMO : (CATS.revenue[d.productLine]||CATS.expense)))
+            .map(c=>`<option value="${c}" ${d.category===c?'selected':''}>${c}</option>`).join('')}
+        </select>
+      </td>
+      <td><input type="text" class="rItem" data-idx="${i}" value="${escapeHtml(d.item)}" style="width:120px;" placeholder="品項"></td>
+      <td><input type="text" class="rQty" data-idx="${i}" value="${d.qty ?? ''}" style="width:48px;"></td>
+      <td><input type="number" step="0.01" class="rTwd" data-idx="${i}" value="${d.twd}" style="width:84px;"></td>
+      <td><input type="text" class="rSource" data-idx="${i}" value="${escapeHtml(d.source||'')}" style="width:130px;" placeholder="平台-賣家"></td>
+      <td style="text-align:center;"><button class="icon-btn rDelRow" data-idx="${i}" title="刪除此列">${iconTrash()}</button></td>
+    </tr>`).join('');
+
+  return `
+  <div class="panel">
+    <div class="panel-head"><h3>辨識結果 — 請確認每一列後儲存（${list.length} 筆）</h3>
+      <button class="btn btn-ghost btn-sm" id="rAddRow">+ 手動新增一列</button>
+    </div>
+    <div class="panel-body">
+      <div class="banner warn">AI 是依截圖內容自動判斷平台／商家／金額／分類，請逐列核對，尤其是日期與金額；取消勾選可略過不記帳的列。</div>
+      <div style="overflow-x:auto;">
+      <table class="ledger" style="font-size:12px;">
+        <thead><tr>
+          <th style="text-align:center;">加入</th><th style="text-align:left;">日期</th><th style="text-align:left;">類型</th>
+          <th style="text-align:left;">品牌</th><th style="text-align:left;">產品線</th><th style="text-align:left;">類別</th>
+          <th style="text-align:left;">項目</th><th>數量</th><th>金額(TWD)</th><th style="text-align:left;">來源(平台-賣家)</th><th></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      </div>
+      <div style="display:flex; align-items:center; gap:14px; justify-content:flex-end; margin-top:14px;">
+        <div style="font-size:12.5px;color:var(--ink-soft);">已勾選小計：<span class="num" style="font-weight:700;">${fmtTWD(sum)}</span></div>
+        <button class="btn btn-ghost" id="rCancelAll">全部取消</button>
+        <button class="btn btn-primary" id="rSaveAll">確認並記帳所選項目</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function fileToDataUrl(file){
+  return new Promise((res,rej)=>{
+    const r = new FileReader();
+    r.onload = ()=>res(r.result);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+
+// Downscale + re-encode as JPEG to keep payload small and reliable for the vision API.
+async function compressImageFile(file, maxDim, quality){
+  maxDim = maxDim || 1568; quality = quality || 0.85;
+  const dataUrl = await fileToDataUrl(file);
+  return new Promise((res)=>{
+    const img = new Image();
+    img.onload = ()=>{
+      let { width, height } = img;
+      if(width>maxDim || height>maxDim){
+        if(width>height){ height = Math.round(height*maxDim/width); width = maxDim; }
+        else{ width = Math.round(width*maxDim/height); height = maxDim; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0,0,width,height); // flatten transparency for PNG->JPEG
+      ctx.drawImage(img, 0, 0, width, height);
+      try{
+        res(canvas.toDataURL('image/jpeg', quality));
+      }catch(e){
+        res(dataUrl); // fallback to original if canvas export fails (e.g. tainted canvas)
+      }
+    };
+    img.onerror = ()=> res(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
+// Shared call to the Anthropic API with a couple of retries for transient server errors.
+async function callClaudeAPI(messages, maxTokens, attempts){
+  attempts = attempts || 4;
+  let lastErr;
+  for(let i=0;i<attempts;i++){
+    let resp;
+    try{
+      resp = await fetch("https://api.anthropic.com/v1/messages", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens: maxTokens||1500, messages })
+      });
+    }catch(networkErr){
+      lastErr = new Error('連線失敗（Failed to fetch）：請求沒能送達伺服器');
+      lastErr.isNetworkError = true;
+      if(i<attempts-1){ await new Promise(r=>setTimeout(r, 900*(i+1))); continue; }
+      throw lastErr;
+    }
+    let data;
+    try{ data = await resp.json(); }catch(e){
+      lastErr = new Error('伺服器回應無法解析，可能是暫時性問題');
+      if(i<attempts-1){ await new Promise(r=>setTimeout(r, 700*(i+1))); continue; }
+      throw lastErr;
+    }
+    if(!resp.ok || data.error){
+      const msg = (data && data.error && data.error.message) ? data.error.message : `伺服器暫時發生錯誤 (${resp.status})`;
+      const transient = resp.status>=500 || /internal server error|overloaded/i.test(msg);
+      if(transient && i<attempts-1){ lastErr = new Error(msg); await new Promise(r=>setTimeout(r, 700*(i+1))); continue; }
+      throw new Error(msg);
+    }
+    return data;
+  }
+  throw lastErr || new Error('辨識失敗，請重試');
+}
+
+function showRecognizeError(errBox, e, retryFn){
+  const isNet = e && e.isNetworkError;
+  const extra = isNet
+    ? '這通常代表瀏覽器沒能把請求送到 Anthropic 伺服器——已自動重試了幾次仍失敗。可以先確認網路連線正常，暫時關閉廣告攔截／隱私保護類的瀏覽器擴充功能後再試一次，或換一個網路（例如關閉VPN、改用行動網路）試試看，也可能是暫時性問題，稍後再試即可。'
+    : '';
+  errBox.innerHTML = `<div class="banner error" style="margin-top:12px;">辨識失敗：${escapeHtml(e.message||String(e))}${extra?'<br><br>'+extra:''}</div>
+    <button class="btn btn-ghost btn-sm" id="btnRetryRecognize" style="margin-top:8px;">重試一次</button>`;
+  const retryBtn = document.getElementById('btnRetryRecognize');
+  if(retryBtn) retryBtn.onclick = retryFn;
+}
+
+function extractJsonArray(text){
+  let clean = text.trim().replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
+  try{ const p = JSON.parse(clean); return Array.isArray(p) ? p : [p]; }catch(e){}
+  // fallback: find first [...] block
+  const start = clean.indexOf('[');
+  const end = clean.lastIndexOf(']');
+  if(start>=0 && end>start){
+    try{ const p = JSON.parse(clean.slice(start,end+1)); return Array.isArray(p)?p:[p]; }catch(e){}
+  }
+  // fallback: find first {...} block, wrap as array
+  const s2 = clean.indexOf('{'); const e2 = clean.lastIndexOf('}');
+  if(s2>=0 && e2>s2){
+    try{ const p = JSON.parse(clean.slice(s2,e2+1)); return [p]; }catch(e){}
+  }
+  throw new Error('AI 回傳內容無法解析成資料，請重試一次');
+}
+
+function receiptExtractionPrompt(thisYear){
+  return `你正在協助一間美甲品牌(DUMO)與教育品牌(RVEA)整理採購紀錄。使用者會上傳「各種購物/電商平台的截圖」，你需要能辨認以下各平台常見的畫面樣式：
+
+・**蝦皮 Shopee（台灣）**：「我的訂單」列表畫面，每筆訂單上方是商店名稱（賣場名稱，通常有「進入賣場」按鈕在旁邊），中間是商品縮圖+商品名稱+規格，右下角是「總計 NT$xxx」或「小計」，訂單狀態常顯示「已完成/待評價/運送中」，日期可能顯示在訂單編號旁或需要點進訂單詳情才有，若截圖上沒有明確日期就用今天。
+・**momo購物網**：畫面偏橘色，訂單編號開頭常是英數字混合，商品名稱下方會有「momo」或「momo mall」字樣，金額標示「訂單金額」。
+・**淘寶 Taobao / 天貓 Tmall**：介面偏橘紅色，賣家名稱在商品上方（有時候是店鋪名稱＋「進店」），金額用人民幣¥顯示，訂單狀態如「交易成功」「待收貨」。
+・**1688（阿里巴巴批發網）**：畫面也偏橘色但通常是B2B進貨/批發介面，賣家名稱常是完整公司行號（例如「XX市OO工藝品廠」「XX貿易有限公司」），常有「起批量」「規格」欄位，金額為人民幣。
+・**小紅書 RED**：介面偏白/紅色，商品筆記/店鋪頁面，賣家可能是個人化暱稱（例如「花校長」「Reta」），金額人民幣。
+・**抖音 / 抖音電商**：黑底或白底介面，商品卡片式排列，賣家為店鋪或達人名稱。
+・**拼多多 PDD**：介面偏亮橘/黃色，常有「多多錢包」「已拼成功」字樣。
+・**Line購物 / Line Pay**：綠色系介面，交易紀錄列表。
+・**銀行 / 綠界(ECPay) / Square 後台**：表格式多筆交易列表，含日期、金額、狀態欄位。
+・**實體發票／收據**：手機拍的紙本統一發票或收據照片，含店家名稱、日期、品項或總金額、有時有統一編號。
+
+使用者上傳的截圖可能是「單筆收據」，也可能是「一次顯示很多筆歷史訂單的列表頁」。請仔細辨認圖片中的平台名稱、每一筆的賣家/商家名稱、日期、金額。如果畫面上同時有好幾筆不同的商品或訂單，請每一筆都各自列成一個陣列元素，不要合併加總或只抓第一筆；如果整張圖其實是同一筆訂單的不同商品（同一個賣家、同一個總金額），才合併成一筆並把商品名稱用頓號連接。
+
+請只回傳一個 JSON 陣列(array)，不要有任何其他文字、不要用 markdown code block 包住，也不要在陣列前後加任何說明文字。每個元素格式：
+{
+  "date": "YYYY-MM-DD",   // 訂單日期；圖片只顯示月/日就補上西元年份${thisYear}；完全看不出來就用今天 ${todayStr()}
+  "type": "expense",      // 訂單/購物紀錄幾乎都是 expense，除非明顯是收款紀錄才用 revenue
+  "item": "商品名稱（不要包含賣家名稱、不要包含訂單編號）",
+  "qty": 數字或null,
+  "currency": "TWD" or "RMB",
+  "amount": 數字,          // 該筆實付金額，對應 currency（用截圖上「總計/實付/訂單金額」，不是原價）
+  "source": "平台-賣家名稱，例如：蝦皮-好好美甲材料行、1688-東莞市興悅環保包裝、小紅書-花校長、momo-OO嚴選、實體店-九大文具店",
+  "suggestedCategory": "從這些類別中選一個最符合的：商品成本, 行銷拍攝成本, 空間成本, 課程成本, 固定成本, 學習成本, 物流, 其他",
+  "suggestedBrand": "DUMO 或 RVEA 或 SHARED",
+  "note": ""
+}
+分類參考：美甲材料/耗材等商品成本通常屬於DUMO；課程相關教材/教具屬於RVEA課程成本；房租、水電、軟體訂閱等固定成本、空間佈置、辦公文具、行銷拍攝設備通常是SHARED(兩品牌共用)；運費/關稅/集運屬於物流，通常屬於DUMO。若圖片某個欄位真的完全看不出來，用你最合理的推測填入，絕對不要留白或省略欄位，也絕對不要在JSON以外加任何文字。`;
+}
+
+function mapParsedToDraft(parsed){
+  const twd = parsed.currency==='RMB' ? (parseFloat(parsed.amount)||0) * SETTINGS.fxRate : (parseFloat(parsed.amount)||0);
+  const suggestedBrand = ['DUMO','RVEA','SHARED'].includes(parsed.suggestedBrand) ? parsed.suggestedBrand : (EXP_BRAND_DEFAULT[parsed.suggestedCategory]||'DUMO');
+  const type = parsed.type==='revenue' ? 'revenue':'expense';
+  let brand = suggestedBrand;
+  if(type==='revenue' && brand==='SHARED') brand = 'DUMO';
+  let productLine = null;
+  if(brand==='RVEA' && type==='revenue') productLine = PRODUCT_LINES[0];
+  let category = CATS.expense.includes(parsed.suggestedCategory) ? parsed.suggestedCategory : (type==='expense' ? '其他' : (brand==='DUMO'?CATS.revenue.DUMO[0]:CATS.revenue[productLine][0]));
+  return {
+    type,
+    date: /^\d{4}-\d{2}-\d{2}$/.test(parsed.date) ? parsed.date : todayStr(),
+    brand, productLine,
+    category,
+    item: parsed.item || '未命名項目',
+    qty: parsed.qty || null,
+    twd: Math.round(twd*100)/100,
+    source: parsed.source || '',
+    note: parsed.note || (parsed.currency==='RMB' ? `原始金額 ¥${parsed.amount}（依匯率 ${SETTINGS.fxRate} 換算）` : ''),
+    include: true
+  };
+}
+
+async function recognizeReceipt(){
+  const btn = document.getElementById('btnRecognize');
+  const spin = document.getElementById('recognizeSpin');
+  const errBox = document.getElementById('recognizeError');
+  errBox.innerHTML = '';
+  btn.disabled = true;
+  spin.innerHTML = '<span class="spinner"></span>';
+  try{
+    const match = receiptImageData.match(/^data:(image\/[a-zA-Z]+);base64,(.*)$/);
+    if(!match) throw new Error('圖片格式錯誤');
+    const mediaType = match[1];
+    const base64 = match[2];
+    const thisYear = todayStr().slice(0,4);
+    const prompt = receiptExtractionPrompt(thisYear);
+
+    const data = await callClaudeAPI([{
+      role:"user",
+      content:[
+        { type:"image", source:{ type:"base64", media_type: mediaType, data: base64 } },
+        { type:"text", text: prompt }
+      ]
+    }], 4000, 3);
+    const textBlocks = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+    if(!textBlocks) throw new Error('AI 沒有回傳可讀取的文字內容');
+    const items = extractJsonArray(textBlocks);
+    if(!items.length) throw new Error('沒有辨識出任何項目，請換一張更清楚的截圖');
+
+    receiptDrafts = items.map(mapParsedToDraft);
+    document.getElementById('receiptReviewPanel').innerHTML = renderReceiptReviewTable();
+    bindReceiptReviewEvents();
+  }catch(e){
+    console.error(e);
+    errBox.innerHTML = '';
+    showRecognizeError(errBox, e, recognizeReceipt);
+  }finally{
+    btn.disabled = false;
+    spin.innerHTML = '';
+  }
+}
+
+function bindReceiptReviewEvents(){
+  const panel = document.getElementById('receiptReviewPanel');
+  if(!panel) return;
+
+  function rerenderTable(){
+    panel.innerHTML = renderReceiptReviewTable();
+    bindReceiptReviewEvents();
+  }
+
+  panel.querySelectorAll('.rInclude').forEach(el=>{
+    el.onchange = ()=>{ receiptDrafts[el.dataset.idx].include = el.checked;
+      const sumEl = panel.querySelector('.num'); if(sumEl){ /* recompute footer only */ }
+      rerenderTable();
+    };
+  });
+  panel.querySelectorAll('.rDate').forEach(el=>{ el.onchange = ()=>{ receiptDrafts[el.dataset.idx].date = el.value; }; });
+  panel.querySelectorAll('.rItem').forEach(el=>{ el.oninput = ()=>{ receiptDrafts[el.dataset.idx].item = el.value; }; });
+  panel.querySelectorAll('.rQty').forEach(el=>{ el.oninput = ()=>{ receiptDrafts[el.dataset.idx].qty = el.value; }; });
+  panel.querySelectorAll('.rTwd').forEach(el=>{ el.oninput = ()=>{ receiptDrafts[el.dataset.idx].twd = el.value; }; });
+  panel.querySelectorAll('.rSource').forEach(el=>{ el.oninput = ()=>{ receiptDrafts[el.dataset.idx].source = el.value; }; });
+
+  panel.querySelectorAll('.rType').forEach(el=>{
+    el.onchange = ()=>{
+      const d = receiptDrafts[el.dataset.idx];
+      d.type = el.value;
+      if(d.type==='revenue' && d.brand==='SHARED') d.brand='DUMO';
+      if(d.type==='revenue' && d.brand==='RVEA' && !d.productLine) d.productLine = PRODUCT_LINES[0];
+      const opts = d.type==='expense' ? CATS.expense : (d.brand==='DUMO'?CATS.revenue.DUMO:(CATS.revenue[d.productLine]||[]));
+      if(!opts.includes(d.category)) d.category = opts[0]||'';
+      rerenderTable();
+    };
+  });
+  panel.querySelectorAll('.rBrand').forEach(el=>{
+    el.onchange = ()=>{
+      const d = receiptDrafts[el.dataset.idx];
+      d.brand = el.value;
+      if(d.brand!=='RVEA') d.productLine = null;
+      else if(!d.productLine) d.productLine = d.type==='revenue' ? PRODUCT_LINES[0] : null;
+      const opts = d.type==='expense' ? CATS.expense : (d.brand==='DUMO'?CATS.revenue.DUMO:(CATS.revenue[d.productLine]||[]));
+      if(!opts.includes(d.category)) d.category = opts[0]||'';
+      rerenderTable();
+    };
+  });
+  panel.querySelectorAll('.rProductLine').forEach(el=>{
+    el.onchange = ()=>{
+      const d = receiptDrafts[el.dataset.idx];
+      d.productLine = el.value || null;
+      const opts = d.type==='expense' ? CATS.expense : (CATS.revenue[d.productLine]||[]);
+      if(!opts.includes(d.category)) d.category = opts[0]||'';
+      rerenderTable();
+    };
+  });
+  panel.querySelectorAll('.rCategory').forEach(el=>{ el.onchange = ()=>{ receiptDrafts[el.dataset.idx].category = el.value; }; });
+  panel.querySelectorAll('.rDelRow').forEach(el=>{
+    el.onclick = ()=>{ receiptDrafts.splice(parseInt(el.dataset.idx,10),1); rerenderTable(); };
+  });
+
+  const addRowBtn = document.getElementById('rAddRow');
+  if(addRowBtn) addRowBtn.onclick = ()=>{ receiptDrafts.push(blankDraftRow()); rerenderTable(); };
+
+  const cancelAll = document.getElementById('rCancelAll');
+  if(cancelAll) cancelAll.onclick = ()=>{ receiptDrafts = null; panel.innerHTML=''; };
+
+  const saveAll = document.getElementById('rSaveAll');
+  if(saveAll) saveAll.onclick = async ()=>{
+    const toSave = receiptDrafts.filter(d=>d.include);
+    if(toSave.length===0){ alert('請至少勾選一筆要記帳的項目'); return; }
+    const invalid = toSave.find(d=> !d.item || !d.twd || parseFloat(d.twd)<=0 || (d.brand==='RVEA' && d.type==='revenue' && !d.productLine));
+    if(invalid){ alert('有勾選的項目缺少項目名稱、有效金額，或RVEA收入未選產品線，請檢查後再儲存'); return; }
+    toSave.forEach(d=>{
+      TXNS.push({
+        id: uid(), createdAt: Date.now(),
+        type: d.type, date: d.date || todayStr(), brand: d.brand, productLine: d.productLine,
+        category: d.category, item: d.item.trim(), qty: d.qty? parseFloat(d.qty): null,
+        rmb: null, twd: parseFloat(d.twd)||0, source: (d.source||'').trim(), note: (d.note||'').trim()
+      });
+    });
+    await saveTxns();
+    receiptDrafts = null;
+    receiptImageData = null;
+    renderApp();
+  };
+}
+
+/* ============================================================
+   Voice input page (語音輸入 — 語音辨識自動記帳)
+   ============================================================ */
+let voiceRecognition = null;
+let voiceRecognizing = false;
+
+function renderVoicePage(){
+  return `
+  <div class="page active">
+    <div class="page-head">
+      <div>
+        <div class="page-title">語音輸入</div>
+        <div class="page-sub">用說的記帳，例如：「圓珠筆25塊，九大文具店買的，工作室空間成本」，AI 會自動拆解成記帳欄位</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-body">
+        <div id="voiceUnsupported" style="display:none;" class="banner warn">這個瀏覽器不支援語音辨識（建議用 Chrome 或 Edge）。您可以直接在下方欄位打字，一樣可以按「AI 辨識並記帳」自動拆解。</div>
+        <div style="display:flex; align-items:center; gap:14px; margin-bottom:16px;">
+          <button class="btn" id="btnMic" style="background:var(--navy); border-radius:999px; width:56px; height:56px; padding:0; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4"/></svg>
+          </button>
+          <div id="micStatus" style="font-size:13px; color:var(--ink-soft);">點麥克風開始說話</div>
+        </div>
+        <div class="field full">
+          <label>語音轉文字內容（可直接編輯修正錯字後再送出）</label>
+          <textarea id="voiceTranscript" rows="3" placeholder="例如：圓珠筆25塊，九大文具店買的，工作室空間成本" style="border:1px solid var(--line-strong); border-radius:var(--radius-sm); padding:10px; resize:vertical;"></textarea>
+        </div>
+        <div style="margin-top:12px;">
+          <button class="btn btn-primary" id="btnVoiceRecognize"><span id="voiceSpin"></span>AI 辨識並記帳</button>
+        </div>
+        <div id="voiceError"></div>
+      </div>
+    </div>
+
+    <div id="receiptReviewPanel"></div>
+  </div>`;
+}
+
+async function recognizeVoiceText(){
+  const btn = document.getElementById('btnVoiceRecognize');
+  const spin = document.getElementById('voiceSpin');
+  const errBox = document.getElementById('voiceError');
+  const text = (document.getElementById('voiceTranscript').value||'').trim();
+  errBox.innerHTML = '';
+  if(!text){ errBox.innerHTML = '<div class="banner warn" style="margin-top:10px;">請先錄音，或直接在欄位裡打字描述這筆帳目</div>'; return; }
+  btn.disabled = true;
+  spin.innerHTML = '<span class="spinner"></span>';
+  try{
+    const prompt = `你正在協助一間美甲品牌(DUMO)與教育品牌(RVEA)記帳。使用者用語音口述了一筆或多筆採購/收入紀錄，逐字稿如下（語音辨識可能有同音字錯誤或口語贅字，請合理推斷語意，不要照字面死板解讀）：
+"""${text}"""
+
+請把每一筆花費/收入拆解成一筆記帳資料，只回傳一個 JSON 陣列(array)，不要有其他文字、不要用markdown code block包住。每個元素格式：
+{
+  "date": "YYYY-MM-DD", // 使用者若沒說日期就用今天 ${todayStr()}；若說「今天/昨天/前天」請據此推算(今天是${todayStr()})
+  "type": "expense" or "revenue",
+  "item": "品項名稱",
+  "qty": 數字或null,
+  "currency": "TWD" or "RMB",
+  "amount": 數字,
+  "source": "使用者提到的商家/平台名稱，沒提到就用空字串",
+  "suggestedCategory": "從這些類別中選一個最符合的：商品成本, 行銷拍攝成本, 空間成本, 課程成本, 固定成本, 學習成本, 物流, 其他",
+  "suggestedBrand": "DUMO 或 RVEA 或 SHARED，使用者說「工作室」「共用」等通常是SHARED",
+  "note": ""
+}
+若使用者口述中已經明確講出類別（例如「空間成本」「課程成本」）或品牌，請直接採用使用者說的分類，不要自己改判斷。`;
+
+    const data = await callClaudeAPI([{ role:"user", content: prompt }], 2000, 3);
+    const textBlocks = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+    if(!textBlocks) throw new Error('AI 沒有回傳可讀取的文字內容');
+    const items = extractJsonArray(textBlocks);
+    if(!items.length) throw new Error('沒有辨識出任何項目，請再說一次或補充更多細節');
+
+    receiptDrafts = items.map(mapParsedToDraft);
+    document.getElementById('receiptReviewPanel').innerHTML = renderReceiptReviewTable();
+    bindReceiptReviewEvents();
+  }catch(e){
+    console.error(e);
+    errBox.innerHTML = '';
+    showRecognizeError(errBox, e, recognizeVoiceText);
+  }finally{
+    btn.disabled = false;
+    spin.innerHTML = '';
+  }
+}
+
+/* ============================================================
+   Cash reconciliation page (出金對帳 — 實際收到的錢)
+   ============================================================ */
+function renderCashPage(){
+  let list = CASHLOGS.slice();
+  if(CASH_FILTERS.brand!=='ALL') list = list.filter(c=>c.brand===CASH_FILTERS.brand);
+  if(CASH_FILTERS.month!=='ALL') list = list.filter(c=>monthKey(c.date)===currentYear()+'-'+CASH_FILTERS.month);
+  list.sort((a,b)=>b.date.localeCompare(a.date));
+  const total = list.reduce((s,c)=>s+c.amountTWD,0);
+
+  const rows = list.map(c=>`
+    <tr>
+      <td style="text-align:left">${c.date}</td>
+      <td style="text-align:left">${brandChip(c.brand)}${c.productLine?` <span style="font-size:11px;color:var(--ink-faint)">${c.productLine}</span>`:''}</td>
+      <td style="text-align:left">${escapeHtml(c.channel)}</td>
+      <td class="num">${fmtTWD(c.amountTWD)}</td>
+      <td style="text-align:left">${escapeHtml(c.note||'')}</td>
+      <td style="text-align:center;white-space:nowrap;">
+        <button class="icon-btn edit-cash" data-id="${c.id}" title="編輯">${iconEdit()}</button>
+        <button class="icon-btn del-cash" data-id="${c.id}" title="刪除">${iconTrash()}</button>
+      </td>
+    </tr>`).join('');
+
+  // monthly summary by brand
+  const summaryRows = yearMonths().map((m,i)=>{
+    const dumo = CASHLOGS.filter(c=>monthKey(c.date)===m && c.brand==='DUMO').reduce((s,c)=>s+c.amountTWD,0);
+    const rvea = CASHLOGS.filter(c=>monthKey(c.date)===m && c.brand==='RVEA').reduce((s,c)=>s+c.amountTWD,0);
+    if(dumo===0 && rvea===0) return `<tr style="opacity:.4"><td>${MONTH_LABEL[i]}</td><td class="num">–</td><td class="num">–</td><td class="num">–</td></tr>`;
+    return `<tr><td>${MONTH_LABEL[i]}</td><td class="num">${fmtTWD(dumo)}</td><td class="num">${fmtTWD(rvea)}</td><td class="num" style="font-weight:700">${fmtTWD(dumo+rvea)}</td></tr>`;
+  }).join('');
+
+  return `
+  <div class="page active">
+    <div class="page-head">
+      <div>
+        <div class="page-title">出金對帳</div>
+        <div class="page-sub">登錄綠界／Square／銀行實際入帳金額，作為「實際收到的錢」的依據</div>
+      </div>
+      <button class="btn btn-primary" id="btnAddCash">+ 新增入帳紀錄</button>
+    </div>
+
+    <div class="banner info">此頁登錄的金額只影響「實收版」總覽；帳面版仍依訂單成立日期計算，兩者不會互相覆蓋。</div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>每月實收金額（依品牌）</h3></div>
+      <div class="panel-body" style="padding:0 18px 12px 18px;">
+        <table class="ledger"><thead><tr><th>月份</th><th>DUMO</th><th>RVEA</th><th>合計</th></tr></thead>
+        <tbody>${summaryRows}</tbody></table>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <select id="cfBrand">
+        <option value="ALL">全部品牌</option>
+        <option value="DUMO" ${CASH_FILTERS.brand==='DUMO'?'selected':''}>DUMO</option>
+        <option value="RVEA" ${CASH_FILTERS.brand==='RVEA'?'selected':''}>RVEA</option>
+      </select>
+      <select id="cfMonth">
+        <option value="ALL">全部月份</option>
+        ${MONTHS.map((m,i)=>`<option value="${m}" ${CASH_FILTERS.month===m?'selected':''}>${MONTH_LABEL[i]}</option>`).join('')}
+      </select>
+      <div class="spacer"></div>
+      <div style="font-size:12.5px;color:var(--ink-soft);">篩選小計：<span class="num" style="font-weight:700;">${fmtTWD(total)}</span></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-body" style="padding:0;">
+        <table class="ledger">
+          <thead><tr><th>入帳日期</th><th>品牌</th><th>通路</th><th>金額(TWD)</th><th>備註</th><th>操作</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="6" class="empty">尚無入帳紀錄，點右上角新增</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
+  </div>`;
+}
+
+function openCashModal(existing){
+  const isEdit = existing && existing.id;
+  editingCashId = isEdit ? existing.id : null;
+  const c = existing || { date: todayStr(), brand:'DUMO', productLine:null, channel:'綠界', amountTWD:'', note:'' };
+  document.getElementById('modalRoot').innerHTML = `
+    <div class="modal-head"><h3>${isEdit?'編輯入帳紀錄':'新增入帳紀錄'}</h3><button class="icon-btn" id="mClose">${iconX()}</button></div>
+    <div class="modal-body">
+      <div class="field-row">
+        <div class="field"><label>入帳日期</label><input type="date" id="cDate" value="${c.date}"></div>
+        <div class="field"><label>品牌</label>
+          <select id="cBrand">
+            <option value="DUMO" ${c.brand==='DUMO'?'selected':''}>DUMO</option>
+            <option value="RVEA" ${c.brand==='RVEA'?'selected':''}>RVEA</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row" id="cRowPL" style="display:${c.brand==='RVEA'?'grid':'none'};">
+        <div class="field full"><label>產品線（選填）</label>
+          <select id="cProductLine">
+            <option value="">— 不指定 —</option>
+            ${PRODUCT_LINES.map(pl=>`<option value="${pl}" ${c.productLine===pl?'selected':''}>${pl}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>通路</label>
+          <select id="cChannel">${CHANNELS.map(ch=>`<option value="${ch}" ${c.channel===ch?'selected':''}>${ch}</option>`).join('')}</select>
+        </div>
+        <div class="field"><label>金額(TWD)</label><input type="number" step="0.01" id="cAmount" value="${c.amountTWD}"></div>
+      </div>
+      <div class="field-row"><div class="field full"><label>備註（選填）</label><input type="text" id="cNote" value="${escapeHtml(c.note||'')}"></div></div>
+    </div>
+    <div class="modal-foot">
+      ${isEdit?'<button class="btn btn-danger" id="mDeleteCash" style="margin-right:auto;">刪除</button>':''}
+      <button class="btn btn-ghost" id="mCancel">取消</button>
+      <button class="btn btn-primary" id="mSaveCash">儲存</button>
+    </div>`;
+  document.getElementById('modalBackdrop').classList.add('open');
+  document.getElementById('mClose').onclick = closeModal;
+  document.getElementById('mCancel').onclick = closeModal;
+  document.getElementById('cBrand').onchange = (e)=>{
+    document.getElementById('cRowPL').style.display = e.target.value==='RVEA' ? 'grid':'none';
+  };
+  document.getElementById('mSaveCash').onclick = async ()=>{
+    const record = {
+      date: document.getElementById('cDate').value || todayStr(),
+      brand: document.getElementById('cBrand').value,
+      productLine: document.getElementById('cBrand').value==='RVEA' ? (document.getElementById('cProductLine').value||null) : null,
+      channel: document.getElementById('cChannel').value,
+      amountTWD: parseFloat(document.getElementById('cAmount').value)||0,
+      note: document.getElementById('cNote').value.trim()
+    };
+    if(!record.amountTWD || record.amountTWD<=0){ alert('請輸入有效金額'); return; }
+    if(editingCashId){
+      const idx = CASHLOGS.findIndex(x=>x.id===editingCashId);
+      if(idx>=0) CASHLOGS[idx] = Object.assign(CASHLOGS[idx], record);
+    } else {
+      record.id = uid();
+      CASHLOGS.push(record);
+    }
+    await saveCashlogs();
+    closeModal();
+    renderApp();
+  };
+  const delBtn = document.getElementById('mDeleteCash');
+  if(delBtn) delBtn.onclick = async ()=>{
+    if(!confirm('確定要刪除這筆入帳紀錄嗎？')) return;
+    CASHLOGS = CASHLOGS.filter(x=>x.id!==editingCashId);
+    await saveCashlogs();
+    closeModal();
+    renderApp();
+  };
+}
+
+/* ============================================================
+   Page-level event binding (delegated per render)
+   ============================================================ */
+function attachPageHandlers(){
+  // view toggle
+  const vt = document.getElementById('viewToggle');
+  if(vt) vt.querySelectorAll('button').forEach(b=>{
+    b.onclick = ()=>{ VIEW_MODE = b.dataset.mode; renderApp(); };
+  });
+
+  // rvea subtabs
+  const st = document.getElementById('rveaSubtabs');
+  if(st) st.querySelectorAll('button').forEach(b=>{
+    b.onclick = ()=>{ RVEA_SUBTAB = b.dataset.tab; renderApp(); };
+  });
+
+  // add txn buttons
+  const btnAdd = document.getElementById('btnAddTxn');
+  if(btnAdd) btnAdd.onclick = ()=>openTxnModal();
+  const btnAddBrand = document.getElementById('btnAddTxnBrand');
+  if(btnAddBrand) btnAddBrand.onclick = ()=>openTxnModal({type:'expense', brand: btnAddBrand.dataset.brand, date: todayStr()});
+  const btnAddLine = document.getElementById('btnAddTxnRveaLine');
+  if(btnAddLine) btnAddLine.onclick = ()=>openTxnModal({type:'revenue', brand:'RVEA', productLine: btnAddLine.dataset.line, date: todayStr()});
+
+  // edit/delete txn (delegated across whole main since could be in mini tables)
+  document.querySelectorAll('.edit-txn').forEach(el=>{
+    el.onclick = ()=>{ const t = TXNS.find(x=>x.id===el.dataset.id); if(t) openTxnModal(t); };
+  });
+  document.querySelectorAll('.del-txn').forEach(el=>{
+    el.onclick = async ()=>{
+      if(!confirm('確定要刪除這筆記錄嗎？')) return;
+      TXNS = TXNS.filter(x=>x.id!==el.dataset.id);
+      await saveTxns();
+      renderApp();
+    };
+  });
+
+  // ledger filters
+  ['fBrand','fType','fMonth','fCategory'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.onchange = ()=>{
+      LEDGER_FILTERS.brand = document.getElementById('fBrand').value;
+      LEDGER_FILTERS.type = document.getElementById('fType').value;
+      LEDGER_FILTERS.month = document.getElementById('fMonth').value;
+      LEDGER_FILTERS.category = document.getElementById('fCategory').value;
+      renderApp();
+    };
+  });
+  const fq = document.getElementById('fQ');
+  if(fq) fq.oninput = ()=>{ LEDGER_FILTERS.q = fq.value; document.getElementById('main').innerHTML = renderLedgerPage(); attachPageHandlers(); };
+
+  // cash filters
+  ['cfBrand','cfMonth'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.onchange = ()=>{
+      CASH_FILTERS.brand = document.getElementById('cfBrand').value;
+      CASH_FILTERS.month = document.getElementById('cfMonth').value;
+      renderApp();
+    };
+  });
+  const btnAddCash = document.getElementById('btnAddCash');
+  if(btnAddCash) btnAddCash.onclick = ()=>openCashModal();
+  document.querySelectorAll('.edit-cash').forEach(el=>{
+    el.onclick = ()=>{ const c = CASHLOGS.find(x=>x.id===el.dataset.id); if(c) openCashModal(c); };
+  });
+  document.querySelectorAll('.del-cash').forEach(el=>{
+    el.onclick = async ()=>{
+      if(!confirm('確定要刪除這筆入帳紀錄嗎？')) return;
+      CASHLOGS = CASHLOGS.filter(x=>x.id!==el.dataset.id);
+      await saveCashlogs();
+      renderApp();
+    };
+  });
+
+  // receipt page
+  const dz = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  if(dz) dz.onclick = ()=>fileInput.click();
+  if(fileInput) fileInput.onchange = async ()=>{
+    const f = fileInput.files[0];
+    if(!f) return;
+    try{
+      receiptImageData = await compressImageFile(f, 1568, 0.85);
+    }catch(e){
+      receiptImageData = await fileToDataUrl(f);
+    }
+    receiptDrafts = null;
+    renderApp();
+  };
+  const btnClearImg = document.getElementById('btnClearImg');
+  if(btnClearImg) btnClearImg.onclick = ()=>{ receiptImageData = null; receiptDrafts = null; renderApp(); };
+  const btnRecognize = document.getElementById('btnRecognize');
+  if(btnRecognize) btnRecognize.onclick = recognizeReceipt;
+
+  // voice page
+  const btnMic = document.getElementById('btnMic');
+  if(btnMic){
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(!SR){
+      const unsupported = document.getElementById('voiceUnsupported');
+      if(unsupported) unsupported.style.display = 'block';
+      btnMic.disabled = true;
+      btnMic.style.opacity = '0.4';
+    } else {
+      btnMic.onclick = ()=>{
+        if(voiceRecognizing){
+          if(voiceRecognition) voiceRecognition.stop();
+          return;
+        }
+        voiceRecognition = new SR();
+        voiceRecognition.lang = 'zh-TW';
+        voiceRecognition.interimResults = true;
+        voiceRecognition.continuous = true;
+        voiceRecognizing = true;
+        const statusEl = document.getElementById('micStatus');
+        if(statusEl) statusEl.textContent = '聆聽中…請開始說話（再按一次麥克風結束）';
+        btnMic.style.background = 'var(--dumo)';
+        voiceRecognition.onresult = (e)=>{
+          let transcript = '';
+          for(let i=0;i<e.results.length;i++){ transcript += e.results[i][0].transcript; }
+          const ta = document.getElementById('voiceTranscript');
+          if(ta) ta.value = transcript;
+        };
+        voiceRecognition.onerror = (e)=>{
+          const statusEl2 = document.getElementById('micStatus');
+          if(statusEl2) statusEl2.textContent = '語音辨識發生錯誤：' + e.error + '（可直接用打字輸入）';
+        };
+        voiceRecognition.onend = ()=>{
+          voiceRecognizing = false;
+          btnMic.style.background = 'var(--navy)';
+          const statusEl3 = document.getElementById('micStatus');
+          if(statusEl3) statusEl3.textContent = '點麥克風開始說話';
+        };
+        try{ voiceRecognition.start(); }catch(e){ voiceRecognizing = false; }
+      };
+    }
+  }
+  const btnVoiceRecognize = document.getElementById('btnVoiceRecognize');
+  if(btnVoiceRecognize) btnVoiceRecognize.onclick = recognizeVoiceText;
+
+  // modal backdrop click to close
+  const backdrop = document.getElementById('modalBackdrop');
+  backdrop.onclick = (e)=>{ if(e.target===backdrop) closeModal(); };
+}
+
+/* ============================================================
+   Init
+   ============================================================ */
+(async function init(){
+  bindDrawerControls();
+  bindBackupControls();
+  await loadData();
+  updateStorageModeLine();
+  if(!STORAGE_OK) showStorageWarning();
+  renderApp();
+})();
+
+function updateStorageModeLine(){
+  const el = document.getElementById('storageModeLine');
+  if(!el) return;
+  if(STORAGE_MODE==='sheet') el.textContent = STORAGE_OK ? '✅ 已連接 Google 試算表（可離線於Claude外使用）' : '⚠️ Google試算表連線失敗';
+  else if(STORAGE_MODE==='claude-storage') el.textContent = STORAGE_OK ? '✅ Claude 雲端儲存中（僅限對話內開啟時有效）' : '⚠️ Claude 雲端儲存失敗';
+  else el.textContent = '⚠️ 目前沒有連接任何儲存空間，資料只留在這次畫面';
+}
+
+</script>
+</body>
+</html>
